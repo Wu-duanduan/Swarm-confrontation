@@ -21,7 +21,6 @@ from pyglet import image
 from PIL import Image as PILImage, ImageDraw
 import time
 
-#123
 seed = 10
 np.random.seed(seed)
 random.seed(seed)
