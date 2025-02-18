@@ -17,13 +17,13 @@ class IIFDS:
         """基本参数："""
         self.V1 = 2  # 速度大小的最大值限制
         self.V2 = 2
-        self.threshold = 1  # 最大打击距离阈值，在该打击距离下，无人机无法隔墙打击
+        self.threshold = 1  # 最大打击距离阈值，在该打击距离下，无人车无法隔墙打击
         self.threshold2 = 0.4  # 搜索任务的到达距离阈值
         self.threshold3 = 0.4  # 逃跑任务的到达距离阈值
         self.stepSize = 0.1  # 时间间隔步长
         self.lam = 0.4  # 避障参数，越大考虑障碍物速度越明显
-        self.numberofuav = 10  # 无人机数量
-        self.uavR = 0.3  # 无人机半径
+        self.numberofuav = 10  # 无人车数量
+        self.uavR = 0.3  # 无人车半径
         self.num_com = 1  # 路径规划时考虑的邻居数量
         self.obsR = 0.3  # 障碍物半径
         self.R_1 = 5  # 针对敌军的感知半径
@@ -230,9 +230,13 @@ class IIFDS:
                         else:
                             if (ta_index[-1][i] != -2) or (
                                     self.distanceCost(goal[i], uavPos[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点
+                                # ===========================
+                                # 无人机敌情侦察模块（王莉）
+                                # ===========================
                                 finder = FindSafeSpot(pos_r, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
                                 temp = finder.predict_trajectory(10)
                                 goal[i][0:2] = finder.find_safe_spot(list(temp.values()))
+                                # ===========================
                             ass_index.append(-1)
                             task_index.append(-2)  # 逃逸
                     else:
@@ -244,9 +248,13 @@ class IIFDS:
                         else:
                             if (ta_index[-1][i] != -2) or (
                                     self.distanceCost(goal[i], uavPos[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点
+                                # ===========================
+                                # 无人机敌情侦察模块（王莉）
+                                # ===========================
                                 finder = FindSafeSpot(pos_b, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
                                 temp = finder.predict_trajectory(10)
                                 goal[i][0:2] = finder.find_safe_spot(list(temp.values()))
+                                # ===========================
                             ass_index.append(-1)
                             task_index.append(-2)  # 逃逸
                 else:
@@ -260,12 +268,14 @@ class IIFDS:
                                                                                            uavPos[
                                                                                                i]) < self.threshold2):
                             if i < self.numberofuav / 2:
+                                # ===========================
+                                # 无人机敌情侦察模块（王莉）
+                                # ===========================
                                 finder = FindEnemyArea(pos_r, obsCenter, self.timeStep, self.obsR+self.uavR)
                                 temp = finder.predict_trajectory(10)
                                 try:
                                     goal[i][0:2] = finder.find_nearest_center(temp, uavPos[i][0:2])
                                 except Exception as e:
-                                    # print('未找到覆盖点')
                                     pass
                             else:
                                 finder = FindEnemyArea(pos_b, obsCenter, self.timeStep, self.obsR+self.uavR)
@@ -273,8 +283,8 @@ class IIFDS:
                                 try:
                                     goal[i][0:2] = finder.find_nearest_center(temp, uavPos[i][0:2])
                                 except Exception as e:
-                                    # print('未找到覆盖点')
                                     pass
+                                # ===========================
                         ass_index.append(-2)
                         task_index.append(-3)  # 搜索
         return goal, ass_index, task_index
@@ -290,7 +300,7 @@ class IIFDS:
         for i in range(self.numberofuav):
             s1 = goal[i] - uavPos[i]
             s.append(s1)
-        # 不仅考虑到观测障碍物 额外还能观测邻居无人机或障碍物
+        # 不仅考虑到观测障碍物 额外还能观测邻居无人车或障碍物
         distance = np.ones([self.numberofuav, int(self.numberofuav + obs_num)]) * np.inf
         for i in range(self.numberofuav):
             for j in range(self.numberofuav + obs_num):
@@ -833,7 +843,7 @@ class IIFDS:
                         distance[0][i] = self.distanceCost(np.array([center_x, center_y]), np.array([green_x, green_y]))
                         i += 1
                 # 获取排序后的数组及原始索引
-                sorted_indices2 = np.argsort(distance[0])  # 获取排序后的索引(距离从小到大的红色无人机序号）
+                sorted_indices2 = np.argsort(distance[0])  # 获取排序后的索引(距离从小到大的红色无人车序号）
                 # print(sorted_indices2)
                 # print(all_red_x)
                 for idx, j in enumerate(sorted_indices2):  # 由近到远画敌军
@@ -871,7 +881,7 @@ class IIFDS:
                         distance[0][i] = self.distanceCost(np.array([center_x, center_y]), np.array([green_x, green_y]))
                         i += 1
                 # 获取排序后的数组及原始索引
-                sorted_indices2 = np.argsort(distance[0])  # 获取排序后的索引(距离从小到大的蓝色无人机序号）
+                sorted_indices2 = np.argsort(distance[0])  # 获取排序后的索引(距离从小到大的蓝色无人车序号）
                 for idx, j in enumerate(sorted_indices2): # 由近到远画友军
                     if teammate_task[idx] == -3:
                         cv2.putText(img, str(idx+1)+"search", (all_blue_x[j], all_blue_y[j]), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
@@ -924,7 +934,7 @@ class IIFDS:
             elif task[assign] == 0:
                 output_str += "Based on the analysis, blue UAV %i is closer and in a chasing state, " \
                           "so it should be prioritized for support." % (nei_distance.index(assign) + 1)
-            # print("支援 %i 号蓝色无人机" % (nei_distance.index(assign) + 1))
+            # print("支援 %i 号蓝色无人车" % (nei_distance.index(assign) + 1))
         elif assign >= self.numberofuav/2: # 追击
             if len(all_opp) <= 1:
                 output_str = "Chasing. The green UAV is surrounded by %i red UAV (enemy) " % len(all_opp)
@@ -938,7 +948,7 @@ class IIFDS:
                           "the average velocity direction of our side is superior to that of the enemy, " \
                           "the green UAV should carry out a chasing mission. " \
                           "Based on the analysis, red UAV %i is closer and should be prioritized for pursuit." % (opp_distance.index(assign) + 1)
-            # print("追击 %i 号红色无人机" % (opp_distance.index(assign) + 1))
+            # print("追击 %i 号红色无人车" % (opp_distance.index(assign) + 1))
         elif assign == -1: # 逃跑
             if len(all_opp) <= 1:
                 output_str = "Escaping. The green UAV is surrounded by %i red UAV (enemy) " % len(all_opp)

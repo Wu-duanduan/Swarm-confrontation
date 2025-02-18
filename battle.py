@@ -130,7 +130,7 @@ class Battle(object):
             self.render_geoms.append(sector)
             self.render_geoms_xform.append(xform)
 
-            if flag <= 0:
+            if flag == 0:
                 if task[i] == -3:
                     color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
                 elif task[i] == -2:

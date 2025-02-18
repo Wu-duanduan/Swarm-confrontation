@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# 模拟UAV（无人车）群体对抗的任务，主要涉及多个无人车（包括红方、蓝方、绿色）在模拟环境中执行任务、攻击和逃避，并且有路径规划和奖励机制。
+# 模拟异构群体对抗的任务，主要涉及多个无人车（包括红方、蓝方）和一个无人机在模拟环境中执行任务、攻击和逃避，并且有路径规划和奖励机制。
 # 在当前细窄长墙体场景下，路径规划算法效果不是特别理想。关键函数为 iifds.detect，iifds.assign，iifds.getvNext。
 # assign函数放了其中一种任务分配例子用于理解。
 
@@ -55,16 +55,16 @@ if __name__ == "__main__":
     args = get_args()  # 使用 argparse 来解析命令行参数，配置Python画图的参数。
     env = Battle(args)  # Battle 类实例化环境，调用 env.reset() 重置环境状态。
     env.reset()
-    iifds = IIFDS()  # 使用 IIFDS 来处理无人机行为的细节（例如任务分配、路径规划等）。
+    iifds = IIFDS()  # 使用 IIFDS 来处理无人车行为的细节（例如任务分配、路径规划等）。
     conf = Config()
     arglist = parse_args()
-    # 加载预训练的模型（Actor），用于无人机的路径规划。
+    # 加载预训练的模型（Actor），用于无人车的路径规划。
     actors_cur1 = [None for _ in range(int(iifds.numberofuav / 2))]
     actors_cur2 = [None for _ in range(int(iifds.numberofuav / 2))]
     for i in range(int(iifds.numberofuav / 2)):
         actors_cur1[i] = torch.load('TrainedModel/Actor.%d.pkl' % i, map_location=device)
         actors_cur2[i] = torch.load('TrainedModel/Actor.%d.pkl' % i, map_location=device)
-    # 初始化无人机的当前位置q，上一位置qBefore，当前速度v，初始位置start，目标goal，障碍物位置obsCenter，障碍物速度Vobs。
+    # 初始化无人车的当前位置q，上一位置qBefore，当前速度v，初始位置start，目标goal，障碍物位置obsCenter，障碍物速度Vobs。
     q = []
     qBefore = []
     v = []
@@ -76,9 +76,6 @@ if __name__ == "__main__":
 
     obs_num = len(obsCenter)
     for i in range(obs_num):
-        # obsCenter[i][0] = obsCenter[i][0] - 10.85
-        # obsCenter[i][1] = obsCenter[i][1] - 7.45
-        # obsCenter[i][2] = obsCenter[i][2] * 2 / 3
         vObs.append(np.array([0, 0, 0], dtype=float))  # 设置为静态障碍物。
     # np.savetxt('./MADDPG_data_csv/obsCenter.csv', obsCenter, delimiter=',')
     for i in range(iifds.numberofuav):
@@ -86,7 +83,7 @@ if __name__ == "__main__":
         qBefore.append([None, None, None])
         v.append((q[i] - q[i]) / iifds.timeStep)  # 初始速度置为0。
 
-    # 使用 globals() 将每个无人机的路径和目标动态赋值给 pathX 和 goalX。
+    # 使用 globals() 将每个无人车的路径和目标动态赋值给 pathX 和 goalX。
     path = []
     target = []
 
@@ -99,29 +96,37 @@ if __name__ == "__main__":
         globals()[f'path{i + 1}'] = path[i]
         globals()[f'goal{i + 1}'] = target[i]
 
-    ta_index = np.ones(iifds.numberofuav) * -3  # 表示当前时刻各无人机的任务目标，-3表示搜索，-2表示逃逸，-1表示支援，0表示追击
-    flag_uav = np.zeros(iifds.numberofuav)  # 表示当前时刻各无人机的存活情况，0表示存活，1表示死亡
-    missle_index = np.ones(iifds.numberofuav) * iifds.missle_num  # 存放每一轮各无人机的子弹剩余数量
-    fill_index = np.zeros(iifds.numberofuav)  # 存放所有时刻各无人机的子弹填充情况
+    ta_index = np.ones(iifds.numberofuav) * -3  # 表示当前时刻各无人车的任务目标，-3表示搜索，-2表示逃逸，-1表示支援，0表示追击
+    flag_uav = np.zeros(iifds.numberofuav)  # 表示当前时刻各无人车的存活情况，0表示存活，1表示死亡
+    missle_index = np.ones(iifds.numberofuav) * iifds.missle_num  # 存放每一轮各无人车的子弹剩余数量
+    fill_index = np.zeros(iifds.numberofuav)  # 存放所有时刻各无人车的子弹填充情况
     flag_fill = np.zeros(iifds.numberofuav)  # 表示当前时刻子弹是否填充完成，填充完毕为1，否则为0
-    HP_index = np.ones(iifds.numberofuav) * iifds.HP_num  # 表示当前时刻各无人机的血量剩余情况
+    HP_index = np.ones(iifds.numberofuav) * iifds.HP_num  # 表示当前时刻各无人车的血量剩余情况
 
-    ta_index = ta_index.reshape(1, -1)  # 存放所有时刻各无人机的任务目标
-    dead_index = flag_uav.reshape(1, -1)  # 存放所有时刻各无人机的存活情况
-    total_missle_index = missle_index.reshape(1, -1)  # 表示所有时刻各无人机的血量剩余情况
-    total_HP_index = HP_index.reshape(1, -1)  # 表示所有时刻各无人机的血量剩余情况
+    ta_index = ta_index.reshape(1, -1)  # 存放所有时刻各无人车的任务目标
+    dead_index = flag_uav.reshape(1, -1)  # 存放所有时刻各无人车的存活情况
+    total_missle_index = missle_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
+    total_HP_index = HP_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
 
     pos_uav = []
     vel_uav = []
-    pos_uav.append(np.array([0, 0, 0.8*2/3], dtype=float))
+    pos_uav.append(np.array([0, 0, 0.8 * 2 / 3], dtype=float))
     vel_uav.append(np.array([0, 0, 0], dtype=float))
 
-    observe_agent = -1  # 设置需要观察的无人机序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人机视野
+    fig_interval = 15
+    # 王梦晟可以考虑把参数设置为-1，范沛源可以考虑把参数设置为1-5，观看各视角下的效果
+    observe_agent = -1  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人车视野
     for i in range(300):
+
+        # ===========================
+        # 无人机路径规划模块（陈老师）是否可以考虑多机？
+        # ===========================
         for j in range(len(pos_uav)):
             vel_uav[j][0] = random.random() * 2 - 1
             vel_uav[j][1] = random.random() * 2 - 1
             pos_uav[j] += vel_uav[j] * iifds.timeStep
+        # ===========================
+
         # 路径拼接
         pos_b = []
         pos_r = []
@@ -129,22 +134,30 @@ if __name__ == "__main__":
         pos_b_all = [[j + 1, globals()[f'path{j + 1}']] for j in range(5)]  # 蓝队路径
         pos_r_all = [[j + 1, globals()[f'path{j + 6}']] for j in range(5)]  # 红队路径
 
-        # 保存所有存放无人机的路径点用于轨迹预测
+        # 保存所有存放无人车的路径点用于轨迹预测
         for j in range(iifds.numberofuav):
             if flag_uav[j] == 0:
                 if j < iifds.numberofuav / 2:
                     pos_b.append(pos_b_all[j])
                 else:
                     pos_r.append(pos_r_all[j - int(iifds.numberofuav / 2)])
-        # 检测在无人机群体中每个无人机感知半径内的敌方、友方、正在追逐或者逃跑的友方，与其最接近的敌方和友方的序号。
+
+        # ===========================
+        # 无人车态势感知模块（范沛源）
+        # ===========================
+        # （目前是基于通信）检测在无人车群体中每个无人车感知半径内的敌方、友方、正在追逐或者逃跑的友方，与其最接近的敌方和友方的序号。
         all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei = iifds.detect(q, flag_uav, ta_index, HP_index,
                                                                                    obsCenter)
+        # ===========================
 
-        # 根据感知信息进行任务分配，goal为分配后的各无人机目标位置，ass_index为追击或支援无人机分配的目标序号，task_index为任务信息。
+        # ===========================
+        # 无人机任务分配模块（孙若斋）
+        # ===========================
+        # 根据感知信息进行任务分配，goal为分配后的各无人车目标位置，ass_index为追击或支援无人车分配的目标序号，task_index为任务信息。
         goal, ass_index, task_index = iifds.assign(q, v, goal, missle_index, i,
                                                    pos_b, pos_r, ta_index, obsCenter, all_opp, all_nei, all_nei_c2e,
                                                    all_close_opp, all_close_nei)
-
+        # ===========================
         ta_index = np.vstack((ta_index, task_index))
         dead_index = np.vstack((dead_index, flag_uav))
         total_missle_index = np.vstack((total_missle_index, missle_index))
@@ -170,7 +183,7 @@ if __name__ == "__main__":
                 if task_index[j] == 0:  # 如果是追击
                     if iifds.distanceCost(goal[j], q[j]) < iifds.threshold and iifds.cos_cal(goal[j] - q[j],
                                                                                              v[j]) < np.cos(
-                            iifds.hit_angle / 2):  # 目标小于开火范围
+                        iifds.hit_angle / 2):  # 目标小于开火范围
                         if random.random() < iifds.hit_rate:
                             if HP_index[ass_index[j]] > 0:
                                 HP_index[ass_index[j]] -= 1
@@ -191,11 +204,14 @@ if __name__ == "__main__":
         rew_n1 = getReward1(qNext, obsCenterNext, obs_num, goal, iifds, start)  # 每个agent使用相同的路径reward
         rew_n2 = getReward2(qNext, obsCenterNext, obs_num, goal, iifds, start)
 
+        # ===========================
+        # 根据位置和速度绘图
+        # ===========================
         env.render(q, v, iifds.R_1, all_opp[observe_agent - 1], all_nei[observe_agent - 1], total_HP_index[-1],
                    iifds.HP_num, total_missle_index[-1] / 2, iifds.missle_num / 2, observe_agent,
-                   task_index, pos_uav, vel_uav)  # 画出上一时刻的位置速度、血量、弹药
-        # print(q[1])
-        if i % 15 == 0 and i != 0:
+                   task_index, pos_uav, vel_uav)  # 画出上一时刻的无人车的位置速度、血量、弹药，以及无人机的位置速度
+
+        if i % fig_interval == 0 and i != 0:  # 将态势保存为图片
             try:
                 color_buffer = pyglet.image.get_buffer_manager().get_color_buffer()
 
@@ -214,14 +230,24 @@ if __name__ == "__main__":
 
                 filename = f"./fig_text/frame-{i}-@sec.png"
                 img.save(filename)
-                if observe_agent > 0:
-                    # try:
+                if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
                     iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
                                                  all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
                                                  observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
             except Exception as e:
                 # pass
                 print("error!")
+
+        # ===========================
+
+        # ===========================
+        # 无人机目标检测模块（王梦晟）
+        # ===========================
+
+        # 此处可以考虑添加目标检测，比如说我获得了无人机的拍摄照片之后，如何识别出每一辆车的位置和速度
+
+        # ===========================
+
         qBefore = q
         q = qNext
         v = vNext
