@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     fig_interval = 15
     # 王梦晟可以考虑把参数设置为-1，范沛源可以考虑把参数设置为1-5，观看各视角下的效果
-    observe_agent = -1  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人车视野
+    observe_agent = 3  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人车视野
     for i in range(300):
 
         # ===========================
@@ -158,6 +158,7 @@ if __name__ == "__main__":
                                                    pos_b, pos_r, ta_index, obsCenter, all_opp, all_nei, all_nei_c2e,
                                                    all_close_opp, all_close_nei)
         # ===========================
+
         ta_index = np.vstack((ta_index, task_index))
         dead_index = np.vstack((dead_index, flag_uav))
         total_missle_index = np.vstack((total_missle_index, missle_index))

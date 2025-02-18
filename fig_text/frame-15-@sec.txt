@@ -1,0 +1,1 @@
+Chasing. The green UAV is surrounded by 1 red UAV (enemy) and 0 blue UAV (teammate). Since enemy forces are present and the average velocity direction of our side is superior to that of the enemy, the green UAV should carry out a chasing mission. Based on the analysis, red UAV 1 is closer and should be prioritized for pursuit.
