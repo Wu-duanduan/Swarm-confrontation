@@ -128,23 +128,23 @@ class IIFDS:
                     elif j != i and j < int(self.numberofuav / 2):  # 友方判断
                         if flag_uav[j] == 0:  # 存活判断
                             if self.is_within_perception_range(self.R_2, self.R_2, uavPos[i][0:2], uavPos[j][0:2]):  # 记录感知半径范围内的友军
-                                flag_undetected = 0
-                                for k in range(len(obsCenter)):
-                                    if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
-                                                                      (uavPos[i][0], uavPos[i][1]),
-                                                                      (uavPos[j][0], uavPos[j][1]))) == 2:
-                                        flag_undetected = 1  # 隔墙无法感知友军
-                                        break
-                                if flag_undetected == 0:
-                                    nei.append(j)  # 存放能感知到的友军
-                                    if ta_index[-1][j] == 0 or ta_index[-1][j] == -2:  # 记录追击和逃跑的友军
-                                        if ta_index[-1][j] == -2:
-                                            distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_2 + \
-                                                              HP_index[j]/ self.HP_num + self.HP_num   # 友军信息包括位置、血量
-                                        else:
-                                            distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_2 + \
-                                                              HP_index[j]/ self.HP_num
-                                        nei_c2e.append(j)
+                                # flag_undetected = 0
+                                # for k in range(len(obsCenter)):
+                                #     if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
+                                #                                       (uavPos[i][0], uavPos[i][1]),
+                                #                                       (uavPos[j][0], uavPos[j][1]))) == 2:
+                                #         flag_undetected = 1  # 隔墙无法感知友军
+                                #         break
+                                # if flag_undetected == 0:
+                                nei.append(j)  # 存放能感知到的友军
+                                if ta_index[-1][j] == 0 or ta_index[-1][j] == -2:  # 记录追击和逃跑的友军
+                                    if ta_index[-1][j] == -2:
+                                        distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_2 + \
+                                                          HP_index[j]/ self.HP_num + self.HP_num   # 友军信息包括位置、血量
+                                    else:
+                                        distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_2 + \
+                                                          HP_index[j]/ self.HP_num
+                                    nei_c2e.append(j)
                 uav_catch = heapq.nsmallest(1, distance1[0])
                 index1 = list(map(distance1[0].tolist().index, uav_catch))
                 uav_contact = heapq.nsmallest(1, distance2[0])
@@ -172,21 +172,21 @@ class IIFDS:
                     elif j != i and j >= int(self.numberofuav / 2):
                         if flag_uav[j] == 0:
                             if self.is_within_perception_range(self.R_2, self.R_2, uavPos[i][0:2], uavPos[j][0:2]):  # 记录感知半径范围内的友军
-                                flag_undetected = 0
-                                for k in range(len(obsCenter)):
-                                    if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
-                                                                      (uavPos[i][0], uavPos[i][1]),
-                                                                      (uavPos[j][0], uavPos[j][1]))) == 2:
-                                        flag_undetected = 1  # 隔墙无法感知友军
-                                        break
-                                if flag_undetected == 0:
-                                    nei.append(j)
-                                    if ta_index[-1][j] == 0 or ta_index[-1][j] == -2:  # 只记录追击和逃跑的友军
-                                        if ta_index[-1][j] == -2:
-                                            distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j])
-                                        else:
-                                            distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j])
-                                        nei_c2e.append(j)
+                                # flag_undetected = 0
+                                # for k in range(len(obsCenter)):
+                                #     if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
+                                #                                       (uavPos[i][0], uavPos[i][1]),
+                                #                                       (uavPos[j][0], uavPos[j][1]))) == 2:
+                                #         flag_undetected = 1  # 隔墙无法感知友军
+                                #         break
+                                # if flag_undetected == 0:
+                                nei.append(j)
+                                if ta_index[-1][j] == 0 or ta_index[-1][j] == -2:  # 只记录追击和逃跑的友军
+                                    if ta_index[-1][j] == -2:
+                                        distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j])
+                                    else:
+                                        distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j])
+                                    nei_c2e.append(j)
                 uav_catch = heapq.nsmallest(1, distance1[0])
                 index1 = list(map(distance1[0].tolist().index, uav_catch))
                 uav_contact = heapq.nsmallest(1, distance2[0])
