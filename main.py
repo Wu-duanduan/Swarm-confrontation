@@ -21,14 +21,14 @@ from pyglet import image
 from PIL import Image as PILImage, ImageDraw
 import time
 
-seed = 10
+seed = 6
 np.random.seed(seed)
 random.seed(seed)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-# time.sleep(2)
+time.sleep(2)
 def get_args():
     parser = argparse.ArgumentParser("UAV swarm confrontation")
     iifds = IIFDS()
@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     fig_interval = 15
     # 王梦晟可以考虑把参数设置为-1，范沛源可以考虑把参数设置为1-5，观看各视角下的效果
-    observe_agent = 3  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人车视野
+    observe_agent = 0  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人车视野
     for i in range(300):
 
         # ===========================
@@ -231,14 +231,13 @@ if __name__ == "__main__":
 
                 filename = f"./fig_text/frame-{i}-@sec.png"
                 img.save(filename)
-                if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
-                    iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
-                                                 all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
-                                                 observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
+                # if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
+                #     iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
+                #                                  all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
+                #                                  observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
             except Exception as e:
                 # pass
                 print("error!")
-
         # ===========================
 
         # ===========================
@@ -275,7 +274,7 @@ if __name__ == "__main__":
         if sum(flag_uav[0:int(iifds.numberofuav / 2)]) == int(iifds.numberofuav / 2) or sum(
                 flag_uav[int(iifds.numberofuav / 2):iifds.numberofuav]) == int(iifds.numberofuav / 2):
             break
-        if observe_agent != 0 and flag_uav[observe_agent - 1] == 1:
+        if observe_agent > 0 and flag_uav[observe_agent - 1] == 1:
             break
     for i in range(1, iifds.numberofuav + 1):
         np.savetxt(f'./MADDPG_data_csv/pathMatrix{i}.csv', globals()[f'path{i}'], delimiter=',')

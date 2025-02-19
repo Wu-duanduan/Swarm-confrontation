@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e0ded54b-9d9d-41f1-9a56-02f3d240c055" name="变更" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/Swarm-confrontation.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Swarm-confrontation.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/All_fun.py" beforeDir="false" afterPath="$PROJECT_DIR$/All_fun.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/MADDPG_data_csv/ass_index.csv" beforeDir="false" afterPath="$PROJECT_DIR$/MADDPG_data_csv/ass_index.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/MADDPG_data_csv/dead_index.csv" beforeDir="false" afterPath="$PROJECT_DIR$/MADDPG_data_csv/dead_index.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/MADDPG_data_csv/goalMatrix1.csv" beforeDir="false" afterPath="$PROJECT_DIR$/MADDPG_data_csv/goalMatrix1.csv" afterDir="false" />
@@ -31,8 +31,13 @@
       <change beforePath="$PROJECT_DIR$/MADDPG_data_csv/pathMatrix9.csv" beforeDir="false" afterPath="$PROJECT_DIR$/MADDPG_data_csv/pathMatrix9.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/MADDPG_data_csv/total_HP_index.csv" beforeDir="false" afterPath="$PROJECT_DIR$/MADDPG_data_csv/total_HP_index.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/MADDPG_data_csv/total_missle_index.csv" beforeDir="false" afterPath="$PROJECT_DIR$/MADDPG_data_csv/total_missle_index.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/battle.py" beforeDir="false" afterPath="$PROJECT_DIR$/battle.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/fig_text/frame-15-@sec.png" beforeDir="false" afterPath="$PROJECT_DIR$/fig_text/frame-15-@sec.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/fig_text/frame-30-@sec.png" beforeDir="false" afterPath="$PROJECT_DIR$/fig_text/frame-30-@sec.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fig_text/frame-45-@sec.png" beforeDir="false" afterPath="$PROJECT_DIR$/fig_text/frame-45-@sec.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fig_text/frame-60-@sec.png" beforeDir="false" afterPath="$PROJECT_DIR$/fig_text/frame-60-@sec.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fig_text/frame-75-@sec.png" beforeDir="false" afterPath="$PROJECT_DIR$/fig_text/frame-75-@sec.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fig_text/frame-90-@sec.png" beforeDir="false" afterPath="$PROJECT_DIR$/fig_text/frame-90-@sec.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
