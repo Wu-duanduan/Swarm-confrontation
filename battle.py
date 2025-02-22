@@ -5,6 +5,7 @@ from gym import spaces
 import pygame
 import rendering
 
+
 class Model(object):
     def __init__(self, args):
         super(Model, self).__init__()
@@ -26,7 +27,6 @@ class Model(object):
         self.sensor_range_l = 0
         self.sensor_range_w = 0
         self.sensor_angle = 0
-
 
 
 class Battle(object):
@@ -98,12 +98,10 @@ class Battle(object):
             #     UAV.pos = np.array([(1 - random_side) * 1.8 - 0.9, 1 - (i - self.num_RUAVs + 1) * interval])
             #     UAV.yaw = pi * (1 - random_side)
 
-    def render(self, pos, vel, detect_range, all_opp, all_nei, HP_index, HP_num, missle_index, missle_num, flag, task, pos_uav, vel_uav,
+    def render(self, pos, vel, detect_range, all_opp, all_nei, HP_index, HP_num, missle_index, missle_num, flag, task,
                mode='rgb_array'):
         pos_copy = np.copy(pos)
         vel_copy = np.copy(vel)
-        pos_uav_copy = np.copy(pos_uav)
-        vel_uav_copy = np.copy(vel_uav)
 
         if self.viewer is None:
             self.viewer = rendering.Viewer(900, 480)
@@ -113,7 +111,7 @@ class Battle(object):
         self.render_geoms_xform = []
         # 初始化pygame用于文本渲染
 
-        for i, CAR in enumerate(self.CARs): # 添加无人车以及攻击范围
+        for i, CAR in enumerate(self.CARs):  # 添加无人车以及攻击范围
             if i == flag - 1:
                 CAR.color = np.array([0, 1, 0])
             xform = rendering.Transform()
@@ -130,149 +128,121 @@ class Battle(object):
             self.render_geoms.append(sector)
             self.render_geoms_xform.append(xform)
 
-            # if flag == 0:
-            #     if task[i] == -3:
-            #         color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
-            #     elif task[i] == -2:
-            #         color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
-            #     elif task[i] == -1:
-            #         color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
-            #     elif task[i] == 0:
-            #         color_temp = np.array([0, 1, 0])  # 绿色
-            #     sector = rendering.make_circle(radius=0.5)
-            #     sector.set_color(*color_temp, 0.4)
-            #     sector.add_attr(xform)
-            #     self.render_geoms.append(sector)
-            #     self.render_geoms_xform.append(xform)
-            # elif flag > 0:
-            #     if task[i] == -3:
-            #         color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
-            #     elif task[i] == -2:
-            #         color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
-            #     elif task[i] == -1:
-            #         color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
-            #     elif task[i] == 0:
-            #         color_temp = np.array([0, 1, 0])  # 绿色
-            #     if i in all_nei:
-            #         sector = rendering.make_circle(radius=0.5)
-            #     else:
-            #         sector = rendering.make_circle(radius=0)
-            #     sector.set_color(*color_temp, 0.4)
-            #     sector.add_attr(xform)
-            #     self.render_geoms.append(sector)
-            #     self.render_geoms_xform.append(xform)
+            if flag == 0:
+                if task[i] == -3:
+                    color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
+                elif task[i] == -2:
+                    color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
+                elif task[i] == -1:
+                    color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
+                elif task[i] == 0:
+                    color_temp = np.array([0, 1, 0])  # 绿色
+                sector = rendering.make_circle(radius=0.5)
+                sector.set_color(*color_temp, 0.4)
+                sector.add_attr(xform)
+                self.render_geoms.append(sector)
+                self.render_geoms_xform.append(xform)
+            elif flag > 0:
+                if task[i] == -3:
+                    color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
+                elif task[i] == -2:
+                    color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
+                elif task[i] == -1:
+                    color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
+                elif task[i] == 0:
+                    color_temp = np.array([0, 1, 0])  # 绿色
+                if i in all_nei:
+                    sector = rendering.make_circle(radius=0.5)
+                else:
+                    sector = rendering.make_circle(radius=0)
+                sector.set_color(*color_temp, 0.4)
+                sector.add_attr(xform)
+                self.render_geoms.append(sector)
+                self.render_geoms_xform.append(xform)
         self.length_temp1 = len(self.render_geoms)
 
-        # for i, CAR in enumerate(self.CARs): # 添加无人车观测范围
-        #     xform = rendering.Transform()
-        #     sector = rendering.make_rectangle(detect_range, detect_range)
-        #     sector.set_color(*CAR.color, 0.02)
-        #     sector.add_attr(xform)
-        #     self.render_geoms.append(sector)
-        #     self.render_geoms_xform.append(xform)
-        # self.length_temp2 = len(self.render_geoms)
-
-        # if flag == 0:
-        #     for i, UAV in enumerate(self.UAVs): # 添加无人机
-        #         xform = rendering.Transform()
-        #         for x in rendering.make_UAV(UAV.size):
-        #             x.set_color(*UAV.color, 0.1)
-        #             x.add_attr(xform)
-        #             self.render_geoms.append(x)
-        #             self.render_geoms_xform.append(xform)
-        #     self.length_temp2 = len(self.render_geoms)
+        # # 动态绘制血条
+        # health_bar_width = 0.5  # 每个格子的宽度
+        # health_bar_height = 0.1  # 格子的高度
+        # max_health = HP_num  # 假设血量最大为 100
+        # num_cells = HP_num  # 假设血条由 10 个格子组成
         #
-        #     for i, UAV in enumerate(self.UAVs): # 添加无人机观测范围
-        #         xform = rendering.Transform()
-        #         sector = rendering.make_rectangle(UAV.sensor_range_l, UAV.sensor_range_w)
-        #         sector.set_color(*UAV.color, 0.02)
-        #         sector.add_attr(xform)
-        #         self.render_geoms.append(sector)
-        #         self.render_geoms_xform.append(xform)
-        #     self.length_temp3 = len(self.render_geoms)
-            # # 动态绘制血条
-            # health_bar_width = 0.5  # 每个格子的宽度
-            # health_bar_height = 0.1  # 格子的高度
-            # max_health = HP_num  # 假设血量最大为 100
-            # num_cells = HP_num  # 假设血条由 10 个格子组成
-            #
-            # # 创建血条的位置变换
-            # health_xform = rendering.Transform()
-            #
-            # # 动态绘制血条格子
-            # for j in range(num_cells):
-            #     # 每个格子的位置
-            #     x_offset = j * health_bar_width - 0.5  # 水平偏移，使得格子居中
-            #     health_bar = rendering.FilledPolygon([
-            #         (x_offset, 0),  # 左下角
-            #         (x_offset + health_bar_width, 0),  # 右下角
-            #         (x_offset + health_bar_width, health_bar_height),  # 右上角
-            #         (x_offset, health_bar_height)  # 左上角
-            #     ])
-            #     if flag == 0:
-            #         if HP_index[i] == 0:
-            #             health_bar.set_color(1, 1, 1, 0)  # 白色表示无血量
-            #         elif j < HP_index[i] / (max_health / num_cells):  # 计算应该显示的格子数量
-            #             health_bar.set_color(255/255, 165/255, 0)  # 红色表示有血量
-            #         else:
-            #             health_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无血量
-            #     else:
-            #         if HP_index[i] == 0 or ((i != flag - 1) and (i not in all_opp) and (i not in all_nei)):
-            #             health_bar.set_color(1, 1, 1, 0)  # 白色表示无血量
-            #         elif j < HP_index[i] / (max_health / num_cells):  # 计算应该显示的格子数量
-            #             health_bar.set_color(255/255, 165/255, 0)  # 红色表示有血量
-            #         else:
-            #             health_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无血量
-            #     if HP_index[i] != 0:
-            #         # 为血条设置位置和旋转
-            #         health_bar.add_attr(health_xform)
-            #         # 设置血条的 Y 坐标偏移，使其在 UAV 上方
-            #         health_xform.set_translation(pos_copy[i][0] - 0.5, pos_copy[i][1] + UAV.size + 0.5)  # 偏移 0.3 让血条在 UAV 上方
-            #     self.render_geoms.append(health_bar)
-            #     self.render_geoms_xform.append(xform)
-            #
-            # # 动态绘制弹药
-            # missle_bar_width = 0.5  # 每个格子的宽度
-            # missle_bar_height = 0.1  # 格子的高度
-            # max_missle = missle_num  # 假设弹药最大为 100
-            # num_cells = int(missle_num)  # 假设弹药由 10 个格子组成
-            #
-            # # 创建弹药的位置变换
-            # missle_xform = rendering.Transform()
-            #
-            # # 动态绘制弹药格子
-            # for j in range(num_cells):
-            #     # 每个格子的位置
-            #     x_offset = j * missle_bar_width - 0.5  # 水平偏移，使得格子居中
-            #     missle_bar = rendering.FilledPolygon([
-            #         (x_offset, 0),  # 左下角
-            #         (x_offset + missle_bar_width, 0),  # 右下角
-            #         (x_offset + missle_bar_width, missle_bar_height),  # 右上角
-            #         (x_offset, missle_bar_height)  # 左上角
-            #     ])
-            #     if flag == 0:
-            #         if missle_index[i] == 0 or HP_index[i] == 0:
-            #             missle_bar.set_color(1, 1, 1, 0)  # 白色表示无弹药
-            #         elif j < missle_index[i] / (max_missle / num_cells):  # 计算应该显示的格子数量
-            #             missle_bar.set_color(0, 1, 0)  # 绿色表示有弹药
-            #         else:
-            #             missle_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无弹药
-            #     else:
-            #         if missle_index[i] == 0 or HP_index[i] == 0 or (
-            #                 (i != flag - 1) and (i not in all_opp) and (i not in all_nei)):
-            #             missle_bar.set_color(1, 1, 1, 0)  # 白色表示无弹药
-            #         elif j < missle_index[i] / (max_missle / num_cells):  # 计算应该显示的格子数量
-            #             missle_bar.set_color(0, 1, 0)  # 绿色表示有弹药
-            #         else:
-            #             missle_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无弹药
-            #     if missle_index[i] != 0:
-            #         # 为弹药设置位置和旋转
-            #         missle_bar.add_attr(missle_xform)
-            #         # 设置弹药的 Y 坐标偏移，使其在 UAV 上方
-            #         missle_xform.set_translation(pos_copy[i][0] - 0.5, pos_copy[i][1] + UAV.size + 0.3)  # 偏移 0.3 让弹药在 UAV 上方
-            #     self.render_geoms.append(missle_bar)
-            #     self.render_geoms_xform.append(xform)
-
+        # # 创建血条的位置变换
+        # health_xform = rendering.Transform()
+        #
+        # # 动态绘制血条格子
+        # for j in range(num_cells):
+        #     # 每个格子的位置
+        #     x_offset = j * health_bar_width - 0.5  # 水平偏移，使得格子居中
+        #     health_bar = rendering.FilledPolygon([
+        #         (x_offset, 0),  # 左下角
+        #         (x_offset + health_bar_width, 0),  # 右下角
+        #         (x_offset + health_bar_width, health_bar_height),  # 右上角
+        #         (x_offset, health_bar_height)  # 左上角
+        #     ])
+        #     if flag == 0:
+        #         if HP_index[i] == 0:
+        #             health_bar.set_color(1, 1, 1, 0)  # 白色表示无血量
+        #         elif j < HP_index[i] / (max_health / num_cells):  # 计算应该显示的格子数量
+        #             health_bar.set_color(255/255, 165/255, 0)  # 红色表示有血量
+        #         else:
+        #             health_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无血量
+        #     else:
+        #         if HP_index[i] == 0 or ((i != flag - 1) and (i not in all_opp) and (i not in all_nei)):
+        #             health_bar.set_color(1, 1, 1, 0)  # 白色表示无血量
+        #         elif j < HP_index[i] / (max_health / num_cells):  # 计算应该显示的格子数量
+        #             health_bar.set_color(255/255, 165/255, 0)  # 红色表示有血量
+        #         else:
+        #             health_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无血量
+        #     if HP_index[i] != 0:
+        #         # 为血条设置位置和旋转
+        #         health_bar.add_attr(health_xform)
+        #         # 设置血条的 Y 坐标偏移，使其在 UAV 上方
+        #         health_xform.set_translation(pos_copy[i][0] - 0.5, pos_copy[i][1] + UAV.size + 0.5)  # 偏移 0.3 让血条在 UAV 上方
+        #     self.render_geoms.append(health_bar)
+        #     self.render_geoms_xform.append(xform)
+        #
+        # # 动态绘制弹药
+        # missle_bar_width = 0.5  # 每个格子的宽度
+        # missle_bar_height = 0.1  # 格子的高度
+        # max_missle = missle_num  # 假设弹药最大为 100
+        # num_cells = int(missle_num)  # 假设弹药由 10 个格子组成
+        #
+        # # 创建弹药的位置变换
+        # missle_xform = rendering.Transform()
+        #
+        # # 动态绘制弹药格子
+        # for j in range(num_cells):
+        #     # 每个格子的位置
+        #     x_offset = j * missle_bar_width - 0.5  # 水平偏移，使得格子居中
+        #     missle_bar = rendering.FilledPolygon([
+        #         (x_offset, 0),  # 左下角
+        #         (x_offset + missle_bar_width, 0),  # 右下角
+        #         (x_offset + missle_bar_width, missle_bar_height),  # 右上角
+        #         (x_offset, missle_bar_height)  # 左上角
+        #     ])
+        #     if flag == 0:
+        #         if missle_index[i] == 0 or HP_index[i] == 0:
+        #             missle_bar.set_color(1, 1, 1, 0)  # 白色表示无弹药
+        #         elif j < missle_index[i] / (max_missle / num_cells):  # 计算应该显示的格子数量
+        #             missle_bar.set_color(0, 1, 0)  # 绿色表示有弹药
+        #         else:
+        #             missle_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无弹药
+        #     else:
+        #         if missle_index[i] == 0 or HP_index[i] == 0 or (
+        #                 (i != flag - 1) and (i not in all_opp) and (i not in all_nei)):
+        #             missle_bar.set_color(1, 1, 1, 0)  # 白色表示无弹药
+        #         elif j < missle_index[i] / (max_missle / num_cells):  # 计算应该显示的格子数量
+        #             missle_bar.set_color(0, 1, 0)  # 绿色表示有弹药
+        #         else:
+        #             missle_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无弹药
+        #     if missle_index[i] != 0:
+        #         # 为弹药设置位置和旋转
+        #         missle_bar.add_attr(missle_xform)
+        #         # 设置弹药的 Y 坐标偏移，使其在 UAV 上方
+        #         missle_xform.set_translation(pos_copy[i][0] - 0.5, pos_copy[i][1] + UAV.size + 0.3)  # 偏移 0.3 让弹药在 UAV 上方
+        #     self.render_geoms.append(missle_bar)
+        #     self.render_geoms_xform.append(xform)
 
         # 渲染静态障碍物
         self.render_static_obstacles()
@@ -284,10 +254,10 @@ class Battle(object):
             self.viewer.set_bounds(-15, +15, -8, +8)
         elif flag == -1:
             # 计算无人机的位置范围并限制在范围内
-            min_x = pos_uav_copy[0][0] - self.sensor_range_l/2
-            max_x = pos_uav_copy[0][0] + self.sensor_range_l/2
-            min_y = pos_uav_copy[0][1] - self.sensor_range_w/2
-            max_y = pos_uav_copy[0][1] + self.sensor_range_w/2
+            min_x = pos_uav_copy[0][0] - self.sensor_range_l / 2
+            max_x = pos_uav_copy[0][0] + self.sensor_range_l / 2
+            min_y = pos_uav_copy[0][1] - self.sensor_range_w / 2
+            max_y = pos_uav_copy[0][1] + self.sensor_range_w / 2
             # 设置矩形视图边界，使其能够覆盖整个圆形范围
             self.viewer.set_bounds(min_x, max_x, min_y, max_y)
         else:
@@ -299,7 +269,7 @@ class Battle(object):
             # 设置矩形视图边界，使其能够覆盖整个圆形范围
             self.viewer.set_bounds(min_x, max_x, min_y, max_y)
 
-        for i, CAR in enumerate(self.CARs): # 无人车以及攻击范围需要旋转
+        for i, CAR in enumerate(self.CARs):  # 无人车以及攻击范围需要旋转
             if flag > 0 and (i != flag - 1) and (i not in all_opp) and (i not in all_nei):
                 vel_copy[i][1] = 0
                 vel_copy[i][0] = 0
@@ -316,34 +286,6 @@ class Battle(object):
                 else:
                     self.render_geoms_xform[idx_ratio * i + idx].set_rotation(
                         np.arctan(vel_copy[i][1] / vel_copy[i][0]) + np.pi)
-
-        # for i, CAR in enumerate(self.CARs):  # 无人车观测范围不需要旋转
-        #     if flag != 0 and (i != flag - 1) and (i not in all_opp) and (i not in all_nei):
-        #         vel_copy[i][1] = 0
-        #         vel_copy[i][0] = 0
-        #     idx_ratio = (self.length_temp2 - self.length_temp1) // self.num_CARs
-        #     for idx in range(idx_ratio):
-        #         self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_translation(*pos_copy[i][0:2])
-
-        # if flag == 0:
-        #     for i, UAV in enumerate(self.UAVs):  # 无人机需要旋转
-        #         idx_ratio = (self.length_temp2 - self.length_temp1) // self.num_UAVs
-        #         for idx in range(idx_ratio):
-        #             self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_translation(*pos_uav_copy[i][0:2])
-        #             if vel_uav_copy[i][1] >= 0 and vel_uav_copy[i][0] >= 0:
-        #                 self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_rotation(
-        #                     np.arctan(vel_uav_copy[i][1] / vel_uav_copy[i][0]))
-        #             elif vel_uav_copy[i][1] < 0 and vel_uav_copy[i][0] >= 0:
-        #                 self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_rotation(
-        #                     np.arctan(vel_uav_copy[i][1] / vel_uav_copy[i][0]))
-        #             else:
-        #                 self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_rotation(
-        #                     np.arctan(vel_uav_copy[i][1] / vel_uav_copy[i][0]) + np.pi)
-        #
-        #     for i, UAV in enumerate(self.UAVs):  # 无人机观测范围不需要旋转
-        #         idx_ratio = (self.length_temp3 - self.length_temp2) // self.num_UAVs
-        #         for idx in range(idx_ratio):
-        #             self.render_geoms_xform[self.length_temp2 + idx_ratio * i + idx].set_translation(*pos_uav_copy[i][0:2])
 
         results.append(self.viewer.render(return_rgb_array=mode == 'rgb_array'))
         return results
