@@ -130,37 +130,37 @@ class Battle(object):
             self.render_geoms.append(sector)
             self.render_geoms_xform.append(xform)
 
-            if flag == 0:
-                if task[i] == -3:
-                    color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
-                elif task[i] == -2:
-                    color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
-                elif task[i] == -1:
-                    color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
-                elif task[i] == 0:
-                    color_temp = np.array([0, 1, 0])  # 绿色
-                sector = rendering.make_circle(radius=0.5)
-                sector.set_color(*color_temp, 0.4)
-                sector.add_attr(xform)
-                self.render_geoms.append(sector)
-                self.render_geoms_xform.append(xform)
-            elif flag > 0:
-                if task[i] == -3:
-                    color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
-                elif task[i] == -2:
-                    color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
-                elif task[i] == -1:
-                    color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
-                elif task[i] == 0:
-                    color_temp = np.array([0, 1, 0])  # 绿色
-                if i in all_nei:
-                    sector = rendering.make_circle(radius=0.5)
-                else:
-                    sector = rendering.make_circle(radius=0)
-                sector.set_color(*color_temp, 0.4)
-                sector.add_attr(xform)
-                self.render_geoms.append(sector)
-                self.render_geoms_xform.append(xform)
+            # if flag == 0:
+            #     if task[i] == -3:
+            #         color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
+            #     elif task[i] == -2:
+            #         color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
+            #     elif task[i] == -1:
+            #         color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
+            #     elif task[i] == 0:
+            #         color_temp = np.array([0, 1, 0])  # 绿色
+            #     sector = rendering.make_circle(radius=0.5)
+            #     sector.set_color(*color_temp, 0.4)
+            #     sector.add_attr(xform)
+            #     self.render_geoms.append(sector)
+            #     self.render_geoms_xform.append(xform)
+            # elif flag > 0:
+            #     if task[i] == -3:
+            #         color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
+            #     elif task[i] == -2:
+            #         color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
+            #     elif task[i] == -1:
+            #         color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
+            #     elif task[i] == 0:
+            #         color_temp = np.array([0, 1, 0])  # 绿色
+            #     if i in all_nei:
+            #         sector = rendering.make_circle(radius=0.5)
+            #     else:
+            #         sector = rendering.make_circle(radius=0)
+            #     sector.set_color(*color_temp, 0.4)
+            #     sector.add_attr(xform)
+            #     self.render_geoms.append(sector)
+            #     self.render_geoms_xform.append(xform)
         self.length_temp1 = len(self.render_geoms)
 
         # for i, CAR in enumerate(self.CARs): # 添加无人车观测范围
@@ -172,24 +172,24 @@ class Battle(object):
         #     self.render_geoms_xform.append(xform)
         # self.length_temp2 = len(self.render_geoms)
 
-        if flag == 0:
-            for i, UAV in enumerate(self.UAVs): # 添加无人机
-                xform = rendering.Transform()
-                for x in rendering.make_UAV(UAV.size):
-                    x.set_color(*UAV.color, 0.1)
-                    x.add_attr(xform)
-                    self.render_geoms.append(x)
-                    self.render_geoms_xform.append(xform)
-            self.length_temp2 = len(self.render_geoms)
-
-            for i, UAV in enumerate(self.UAVs): # 添加无人机观测范围
-                xform = rendering.Transform()
-                sector = rendering.make_rectangle(UAV.sensor_range_l, UAV.sensor_range_w)
-                sector.set_color(*UAV.color, 0.02)
-                sector.add_attr(xform)
-                self.render_geoms.append(sector)
-                self.render_geoms_xform.append(xform)
-            self.length_temp3 = len(self.render_geoms)
+        # if flag == 0:
+        #     for i, UAV in enumerate(self.UAVs): # 添加无人机
+        #         xform = rendering.Transform()
+        #         for x in rendering.make_UAV(UAV.size):
+        #             x.set_color(*UAV.color, 0.1)
+        #             x.add_attr(xform)
+        #             self.render_geoms.append(x)
+        #             self.render_geoms_xform.append(xform)
+        #     self.length_temp2 = len(self.render_geoms)
+        #
+        #     for i, UAV in enumerate(self.UAVs): # 添加无人机观测范围
+        #         xform = rendering.Transform()
+        #         sector = rendering.make_rectangle(UAV.sensor_range_l, UAV.sensor_range_w)
+        #         sector.set_color(*UAV.color, 0.02)
+        #         sector.add_attr(xform)
+        #         self.render_geoms.append(sector)
+        #         self.render_geoms_xform.append(xform)
+        #     self.length_temp3 = len(self.render_geoms)
             # # 动态绘制血条
             # health_bar_width = 0.5  # 每个格子的宽度
             # health_bar_height = 0.1  # 格子的高度
@@ -324,25 +324,26 @@ class Battle(object):
         #     idx_ratio = (self.length_temp2 - self.length_temp1) // self.num_CARs
         #     for idx in range(idx_ratio):
         #         self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_translation(*pos_copy[i][0:2])
-        if flag == 0:
-            for i, UAV in enumerate(self.UAVs):  # 无人机需要旋转
-                idx_ratio = (self.length_temp2 - self.length_temp1) // self.num_UAVs
-                for idx in range(idx_ratio):
-                    self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_translation(*pos_uav_copy[i][0:2])
-                    if vel_uav_copy[i][1] >= 0 and vel_uav_copy[i][0] >= 0:
-                        self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_rotation(
-                            np.arctan(vel_uav_copy[i][1] / vel_uav_copy[i][0]))
-                    elif vel_uav_copy[i][1] < 0 and vel_uav_copy[i][0] >= 0:
-                        self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_rotation(
-                            np.arctan(vel_uav_copy[i][1] / vel_uav_copy[i][0]))
-                    else:
-                        self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_rotation(
-                            np.arctan(vel_uav_copy[i][1] / vel_uav_copy[i][0]) + np.pi)
 
-            for i, UAV in enumerate(self.UAVs):  # 无人机观测范围不需要旋转
-                idx_ratio = (self.length_temp3 - self.length_temp2) // self.num_UAVs
-                for idx in range(idx_ratio):
-                    self.render_geoms_xform[self.length_temp2 + idx_ratio * i + idx].set_translation(*pos_uav_copy[i][0:2])
+        # if flag == 0:
+        #     for i, UAV in enumerate(self.UAVs):  # 无人机需要旋转
+        #         idx_ratio = (self.length_temp2 - self.length_temp1) // self.num_UAVs
+        #         for idx in range(idx_ratio):
+        #             self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_translation(*pos_uav_copy[i][0:2])
+        #             if vel_uav_copy[i][1] >= 0 and vel_uav_copy[i][0] >= 0:
+        #                 self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_rotation(
+        #                     np.arctan(vel_uav_copy[i][1] / vel_uav_copy[i][0]))
+        #             elif vel_uav_copy[i][1] < 0 and vel_uav_copy[i][0] >= 0:
+        #                 self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_rotation(
+        #                     np.arctan(vel_uav_copy[i][1] / vel_uav_copy[i][0]))
+        #             else:
+        #                 self.render_geoms_xform[self.length_temp1 + idx_ratio * i + idx].set_rotation(
+        #                     np.arctan(vel_uav_copy[i][1] / vel_uav_copy[i][0]) + np.pi)
+        #
+        #     for i, UAV in enumerate(self.UAVs):  # 无人机观测范围不需要旋转
+        #         idx_ratio = (self.length_temp3 - self.length_temp2) // self.num_UAVs
+        #         for idx in range(idx_ratio):
+        #             self.render_geoms_xform[self.length_temp2 + idx_ratio * i + idx].set_translation(*pos_uav_copy[i][0:2])
 
         results.append(self.viewer.render(return_rgb_array=mode == 'rgb_array'))
         return results

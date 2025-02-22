@@ -21,7 +21,7 @@ from pyglet import image
 from PIL import Image as PILImage, ImageDraw
 import time
 
-seed = 6
+seed = 0
 np.random.seed(seed)
 random.seed(seed)
 
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     fig_interval = 15
     # 王梦晟可以考虑把参数设置为-1，范沛源可以考虑把参数设置为1-5，观看各视角下的效果
     observe_agent = 0  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人车视野
-    for i in range(300):
+    for i in range(3000):
 
         # ===========================
         # 无人机路径规划模块（陈老师）是否可以考虑多机？
@@ -154,9 +154,12 @@ if __name__ == "__main__":
         # 无人机任务分配模块（孙若斋）
         # ===========================
         # 根据感知信息进行任务分配，goal为分配后的各无人车目标位置，ass_index为追击或支援无人车分配的目标序号，task_index为任务信息。
+        start_t = time.time()
         goal, ass_index, task_index = iifds.assign(q, v, goal, missle_index, i,
                                                    pos_b, pos_r, ta_index, obsCenter, all_opp, all_nei, all_nei_c2e,
                                                    all_close_opp, all_close_nei)
+        end_t = time.time()
+        print("决策时间:", end_t - start_t, "s")
         # ===========================
 
         ta_index = np.vstack((ta_index, task_index))
