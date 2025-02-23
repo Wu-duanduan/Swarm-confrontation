@@ -252,14 +252,6 @@ class Battle(object):
         results = []
         if flag == 0:
             self.viewer.set_bounds(-15, +15, -8, +8)
-        elif flag == -1:
-            # 计算无人机的位置范围并限制在范围内
-            min_x = pos_uav_copy[0][0] - self.sensor_range_l / 2
-            max_x = pos_uav_copy[0][0] + self.sensor_range_l / 2
-            min_y = pos_uav_copy[0][1] - self.sensor_range_w / 2
-            max_y = pos_uav_copy[0][1] + self.sensor_range_w / 2
-            # 设置矩形视图边界，使其能够覆盖整个圆形范围
-            self.viewer.set_bounds(min_x, max_x, min_y, max_y)
         else:
             # 计算无人车的位置范围并限制在范围内
             min_x = pos_copy[flag - 1][0] - detect_range
