@@ -128,37 +128,37 @@ class Battle(object):
             self.render_geoms.append(sector)
             self.render_geoms_xform.append(xform)
 
-            if flag == 0:
-                if task[i] == -3:
-                    color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
-                elif task[i] == -2:
-                    color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
-                elif task[i] == -1:
-                    color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
-                elif task[i] == 0:
-                    color_temp = np.array([0, 1, 0])  # 绿色
-                sector = rendering.make_circle(radius=0.5)
-                sector.set_color(*color_temp, 0.4)
-                sector.add_attr(xform)
-                self.render_geoms.append(sector)
-                self.render_geoms_xform.append(xform)
-            elif flag > 0:
-                if task[i] == -3:
-                    color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
-                elif task[i] == -2:
-                    color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
-                elif task[i] == -1:
-                    color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
-                elif task[i] == 0:
-                    color_temp = np.array([0, 1, 0])  # 绿色
-                if i in all_nei:
-                    sector = rendering.make_circle(radius=0.5)
-                else:
-                    sector = rendering.make_circle(radius=0)
-                sector.set_color(*color_temp, 0.4)
-                sector.add_attr(xform)
-                self.render_geoms.append(sector)
-                self.render_geoms_xform.append(xform)
+            # if flag == 0:
+            #     if task[i] == -3:
+            #         color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
+            #     elif task[i] == -2:
+            #         color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
+            #     elif task[i] == -1:
+            #         color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
+            #     elif task[i] == 0:
+            #         color_temp = np.array([0, 1, 0])  # 绿色
+            #     sector = rendering.make_circle(radius=0.5)
+            #     sector.set_color(*color_temp, 0.4)
+            #     sector.add_attr(xform)
+            #     self.render_geoms.append(sector)
+            #     self.render_geoms_xform.append(xform)
+            # elif flag > 0:
+            #     if task[i] == -3:
+            #         color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
+            #     elif task[i] == -2:
+            #         color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
+            #     elif task[i] == -1:
+            #         color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
+            #     elif task[i] == 0:
+            #         color_temp = np.array([0, 1, 0])  # 绿色
+            #     if i in all_nei:
+            #         sector = rendering.make_circle(radius=0.5)
+            #     else:
+            #         sector = rendering.make_circle(radius=0)
+            #     sector.set_color(*color_temp, 0.4)
+            #     sector.add_attr(xform)
+            #     self.render_geoms.append(sector)
+            #     self.render_geoms_xform.append(xform)
         self.length_temp1 = len(self.render_geoms)
 
         # # 动态绘制血条
