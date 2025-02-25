@@ -1,0 +1,1 @@
+Supporting. The green UAV is surrounded by 0 red UAV (enemy) and 1 blue UAV (teammate). 1 teammate is escaping. Since no enemy forces have been detected, the green UAV should perform a supporting mission. Based on the analysis, blue UAV 1 is closer and in a escaping state, so it should be prioritized for support.

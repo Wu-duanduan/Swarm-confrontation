@@ -113,9 +113,9 @@ if __name__ == "__main__":
     pos_uav.append(np.array([0, 0, 0.8 * 2 / 3], dtype=float))
     vel_uav.append(np.array([0, 0, 0], dtype=float))
 
-    fig_interval = 15
+    fig_interval = 1
     # 王梦晟可以考虑把参数设置为-1，范沛源可以考虑把参数设置为1-5，观看各视角下的效果
-    observe_agent = 3  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人车视野
+    observe_agent = 2  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人车视野
     for i in range(300):
 
         # ===========================
@@ -231,10 +231,10 @@ if __name__ == "__main__":
 
                 filename = f"./fig_text/frame-{i}-@sec.png"
                 img.save(filename)
-                if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
-                    iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
-                                                 all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
-                                                 observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
+                # if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
+                #     iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
+                #                                  all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
+                #                                  observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
             except Exception as e:
                 # pass
                 print("error!")
@@ -277,12 +277,12 @@ if __name__ == "__main__":
             break
         if observe_agent != 0 and flag_uav[observe_agent - 1] == 1:
             break
-    for i in range(1, iifds.numberofuav + 1):
-        np.savetxt(f'./MADDPG_data_csv/pathMatrix{i}.csv', globals()[f'path{i}'], delimiter=',')
-        np.savetxt(f'./MADDPG_data_csv/goalMatrix{i}.csv', globals()[f'goal{i}'], delimiter=',')
-    np.savetxt('./MADDPG_data_csv/ass_index.csv', ta_index, delimiter=',')
-    np.savetxt('./MADDPG_data_csv/dead_index.csv', dead_index, delimiter=',')
-    np.savetxt('./MADDPG_data_csv/total_missle_index.csv', total_missle_index, delimiter=',')
-    np.savetxt('./MADDPG_data_csv/total_HP_index.csv', total_HP_index, delimiter=',')
+    # for i in range(1, iifds.numberofuav + 1):
+    #     np.savetxt(f'./MADDPG_data_csv/pathMatrix{i}.csv', globals()[f'path{i}'], delimiter=',')
+    #     np.savetxt(f'./MADDPG_data_csv/goalMatrix{i}.csv', globals()[f'goal{i}'], delimiter=',')
+    # np.savetxt('./MADDPG_data_csv/ass_index.csv', ta_index, delimiter=',')
+    # np.savetxt('./MADDPG_data_csv/dead_index.csv', dead_index, delimiter=',')
+    # np.savetxt('./MADDPG_data_csv/total_missle_index.csv', total_missle_index, delimiter=',')
+    # np.savetxt('./MADDPG_data_csv/total_HP_index.csv', total_HP_index, delimiter=',')
     # np.savetxt('./MADDPG_data_csv/obsCenter.csv', obsCenter, delimiter=',')
     plt.show()
