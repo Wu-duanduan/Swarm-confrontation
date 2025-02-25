@@ -28,7 +28,7 @@ random.seed(seed)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-time.sleep(2)
+# time.sleep(2)
 def get_args():
     parser = argparse.ArgumentParser("UAV swarm confrontation")
     iifds = IIFDS()
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     total_HP_index = HP_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
 
     fig_interval = 15
-    observe_agent = 1  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号
+    observe_agent = 0  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号
     for i in range(3000):
 
         # 路径拼接

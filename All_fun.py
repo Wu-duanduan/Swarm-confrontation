@@ -27,7 +27,7 @@ class IIFDS:
         self.num_com = 1  # 路径规划时考虑的邻居数量
         self.obsR = 0.3  # 障碍物半径
         self.R_1 = 10  # 针对敌军的感知半径
-        self.R_2 = 5  # 针对友军的感知半径
+        self.R_2 = 20  # 针对友军的感知半径
         self.missle_num = 100  # 最大子弹填充数量
         self.hit_angle = np.pi / 2  # 子弹攻击角度
         self.hit_rate = 0.5  # 子弹命中概率
