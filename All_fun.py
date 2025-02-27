@@ -15,8 +15,8 @@ class IIFDS:
 
     def __init__(self):
         """基本参数："""
-        self.V1 = 2  # 速度大小的最大值限制
-        self.V2 = 2
+        self.V1 = 0.4  # 速度大小的最大值限制
+        self.V2 = 0.4
         self.threshold = 1  # 最大打击距离阈值，在该打击距离下，无人车无法隔墙打击
         self.threshold2 = 0.4  # 搜索任务的到达距离阈值
         self.threshold3 = 0.4  # 逃跑任务的到达距离阈值
@@ -197,6 +197,102 @@ class IIFDS:
                 all_close_opp.append(index1[0])
                 all_close_nei.append(index2[0])
         return all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei
+
+    def Meanfield(self, uavPos, uavVel, all_opp, all_nei, all_nei_c2e):
+        ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e = [], [], [], [], [], []
+        for i in range(int(self.numberofuav)):
+            num_opp.append(len(all_opp[i]))
+            num_nei_c2e.append(len(all_nei_c2e[i]))
+            ave_nei_pos.append((sum(uavPos[index] for index in all_nei[i]) + uavPos[i]) / (len(all_nei[i]) + 1))
+            ave_nei_vel.append((sum(uavVel[index] for index in all_nei[i]) + uavVel[i]) / (len(all_nei[i]) + 1))
+            if(len(all_opp[i]) == 0):
+                ave_opp_pos.append(float('-inf'))
+                ave_opp_vel.append(float('-inf'))
+            else:
+                ave_opp_pos.append(sum(uavPos[index] for index in all_opp[i]) / len(all_opp[i]))
+                ave_opp_vel.append(sum(uavVel[index] for index in all_opp[i]) / len(all_opp[i]))
+        return ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e
+    
+    def stateSelectionBlue(self, ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e, missle_index):
+        task_index_blue = []
+        for i in range(int(self.numberofuav / 2)):
+            if missle_index[i] == 0:  # 只要弹药为空，就逃
+                task_index_blue.append(-2)  # 逃逸
+            else:
+                if num_opp[i] != 0: # 发现敌方
+                    if self.cos_cal(ave_nei_vel[i], ave_opp_pos[i] - ave_nei_pos[i]) >= self.cos_cal(ave_opp_vel[i],
+                                                                                                -ave_opp_pos[i] + ave_nei_pos[i]):
+                        task_index_blue.append(0)  # 追击
+                    else:
+                        task_index_blue.append(-2)  # 逃逸
+                else:
+                    if num_nei_c2e[i] != 0:  # 存在逃跑或追击的友军
+                        task_index_blue.append(-1)  # 支援
+                    else:
+                        task_index_blue.append(-3)  # 搜索
+                        
+        return task_index_blue
+    
+    def stateSelectionRed(self, uavPos, uavVel, missle_index, all_opp, all_nei_c2e, all_close_opp):
+        task_index_red = []
+        for i in range(int(self.numberofuav / 2)):
+            i = i + int(self.numberofuav / 2)
+            if missle_index[i] == 0:  # 只要弹药为空，就逃
+                task_index_red.append(-2)  # 逃逸
+            else:
+                if len(all_opp[i]) != 0: # 发现敌方
+                    if self.cos_cal(uavVel[i], uavPos[all_close_opp[i]] - uavPos[i]) >= self.cos_cal(
+                                uavVel[all_close_opp[i]], -uavPos[all_close_opp[i]] + uavPos[i]):
+                        task_index_red.append(0)  # 追击
+                    else:
+                        task_index_red.append(-2)  # 逃逸
+                else:
+                    if len(all_nei_c2e[i]) != 0:  # 存在逃跑或追击的友军
+                        task_index_red.append(-1)  # 支援
+                    else:
+                        task_index_red.append(-3)  # 搜索
+
+        return task_index_red
+    
+    def allocation(self, uavPos,  goal,  pos_b, pos_r, ta_index,
+               obsCenter,  all_close_opp, all_close_nei, task_index, epi):
+        ass_index = []
+
+        for i in range(self.numberofuav):
+            if task_index[i] == -3: # 搜索
+                if epi > self.end_predict and (
+                                ta_index[-1][i] != -3 or epi % 5 == 0 or self.distanceCost(goal[i],
+                                                                                           uavPos[
+                                                                                               i]) < self.threshold2):
+                    if i < self.numberofuav / 2:
+                        finder = FindEnemyArea(pos_r, obsCenter, self.timeStep, self.obsR+self.uavR)
+                    else:
+                        finder = FindEnemyArea(pos_b, obsCenter, self.timeStep, self.obsR+self.uavR)
+                    temp = finder.predict_trajectory(10)
+                    try:
+                        goal[i][0:2] = finder.find_nearest_center(temp, uavPos[i][0:2])
+                    except Exception as e:
+                        # print('未找到覆盖点')
+                        pass
+                ass_index.append(-2)
+            elif task_index[i] == -2: # 逃逸
+                if (ta_index[-1][i] != -2) or (
+                    self.distanceCost(goal[i], uavPos[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点，重新计算逃逸目标点
+                    if i < self.numberofuav / 2:
+                        finder = FindSafeSpot(pos_r, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
+                    else:
+                        finder = FindSafeSpot(pos_b, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
+                    temp = finder.predict_trajectory(10)
+                    goal[i][0:2] = finder.find_safe_spot(list(temp.values()))
+                ass_index.append(-1)
+            elif task_index[i] == -1: # 支援
+                goal[i] = uavPos[all_close_nei[i]]
+                ass_index.append(all_close_nei[i])
+            else: # 追击
+                goal[i] = uavPos[all_close_opp[i]]
+                ass_index.append(all_close_opp[i])
+
+        return goal, ass_index
 
     def assign(self, uavPos, uavVel, goal, missle_index, epi, pos_b, pos_r, ta_index,
                obsCenter, all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei):
@@ -470,7 +566,7 @@ class IIFDS:
                 uavNextPos = uavPos + ubar * self.stepSize
             else:
                 uavNextPos = uavPos + ubar * self.stepSize
-                # _, _, _, _, uavNextPos = self.kinematicConstrant(uavPos, qBefore, uavNextPos)
+                _, _, _, _, uavNextPos = self.kinematicConstrant(uavPos, qBefore, uavNextPos)
             uavNextPos[2] = uavPos[2]
 
             for j in range(len(obsq)):

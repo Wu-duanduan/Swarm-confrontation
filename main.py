@@ -21,7 +21,7 @@ from pyglet import image
 from PIL import Image as PILImage, ImageDraw
 import time
 
-seed = 10
+seed = random.randint(1, 100)  # 生成一个随机种子
 np.random.seed(seed)
 random.seed(seed)
 
@@ -97,14 +97,14 @@ if __name__ == "__main__":
         globals()[f'goal{i + 1}'] = target[i]
 
     ta_index = np.ones(iifds.numberofuav) * -3  # 表示当前时刻各无人车的任务目标，-3表示搜索，-2表示逃逸，-1表示支援，0表示追击
-    flag_uav = np.zeros(iifds.numberofuav)  # 表示当前时刻各无人车的存活情况，0表示存活，1表示死亡
+    flag_ugv = np.zeros(iifds.numberofuav)  # 表示当前时刻各无人车的存活情况，0表示存活，1表示死亡
     missle_index = np.ones(iifds.numberofuav) * iifds.missle_num  # 存放每一轮各无人车的子弹剩余数量
     fill_index = np.zeros(iifds.numberofuav)  # 存放所有时刻各无人车的子弹填充情况
     flag_fill = np.zeros(iifds.numberofuav)  # 表示当前时刻子弹是否填充完成，填充完毕为1，否则为0
     HP_index = np.ones(iifds.numberofuav) * iifds.HP_num  # 表示当前时刻各无人车的血量剩余情况
 
     ta_index = ta_index.reshape(1, -1)  # 存放所有时刻各无人车的任务目标
-    dead_index = flag_uav.reshape(1, -1)  # 存放所有时刻各无人车的存活情况
+    dead_index = flag_ugv.reshape(1, -1)  # 存放所有时刻各无人车的存活情况
     total_missle_index = missle_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
     total_HP_index = HP_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
 
@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     fig_interval = 1
     # 王梦晟可以考虑把参数设置为-1，范沛源可以考虑把参数设置为1-5，观看各视角下的效果
-    observe_agent = 2  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人车视野
+    observe_agent = 0  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号，-1表示无人车视野
     for i in range(300):
 
         # ===========================
@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
         # 保存所有存放无人车的路径点用于轨迹预测
         for j in range(iifds.numberofuav):
-            if flag_uav[j] == 0:
+            if flag_ugv[j] == 0:
                 if j < iifds.numberofuav / 2:
                     pos_b.append(pos_b_all[j])
                 else:
@@ -146,21 +146,36 @@ if __name__ == "__main__":
         # 无人车态势感知模块（范沛源）
         # ===========================
         # （目前是基于通信）检测在无人车群体中每个无人车感知半径内的敌方、友方、正在追逐或者逃跑的友方，与其最接近的敌方和友方的序号。
-        all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei = iifds.detect(q, flag_uav, ta_index, HP_index,
+        all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei = iifds.detect(q, flag_ugv, ta_index, HP_index,
                                                                                    obsCenter)
+        # ===========================
+        # 根据位置和速度绘图
+        # ===========================
+        env.render(q, v, iifds.R_1, all_opp[observe_agent - 1], all_nei[observe_agent - 1],  observe_agent,
+                    pos_uav, vel_uav, flag_ugv)  # 画出上一时刻的无人车的位置速度，以及无人机的位置速度
         # ===========================
 
         # ===========================
-        # 无人机任务分配模块（孙若斋）
+        # 无人车态势感知与任务分配模块（孙若斋）
         # ===========================
-        # 根据感知信息进行任务分配，goal为分配后的各无人车目标位置，ass_index为追击或支援无人车分配的目标序号，task_index为任务信息。
-        goal, ass_index, task_index = iifds.assign(q, v, goal, missle_index, i,
-                                                   pos_b, pos_r, ta_index, obsCenter, all_opp, all_nei, all_nei_c2e,
-                                                   all_close_opp, all_close_nei)
+        # 输入为局部BEV图像
+        # 根据感知信息进行任务分配，task_index为任务信息（宏动作）。
+        # 无人车局部视角判断有无友军
+        # filename = f"./fig_text/frame-{i-1}-@sec.png"
+
+        # if observe_agent > 0:
+        #     enemy_in_sight = iifds.find_enemy()
+        ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e = iifds.Meanfield(q, v, all_opp, all_nei, all_nei_c2e)
+        task_index_blue = iifds.stateSelectionBlue(ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e, missle_index)
+        task_index_red = iifds.stateSelectionRed(q, v, missle_index, all_opp, all_nei_c2e, all_close_opp)
+        task_index = task_index_blue + task_index_red
+
+        # goal为分配后的各无人车目标位置，ass_index为追击或支援无人车分配的目标序号
+        goal, ass_index = iifds.allocation(q, goal, pos_b, pos_r, ta_index, obsCenter, all_close_opp, all_close_nei, task_index, i)
         # ===========================
 
         ta_index = np.vstack((ta_index, task_index))
-        dead_index = np.vstack((dead_index, flag_uav))
+        dead_index = np.vstack((dead_index, flag_ugv))
         total_missle_index = np.vstack((total_missle_index, missle_index))
         total_HP_index = np.vstack((total_HP_index, HP_index))
 
@@ -168,7 +183,7 @@ if __name__ == "__main__":
         obsCenterNext = obsCenter
         vObsNext = vObs
         # 根据当前位置、目标位置、障碍物位置，规划避障路径，输出为下一时刻的速度矢量（包括大小和方向）
-        vNext = iifds.getvNext(q, v, obsCenter, vObs, qBefore, goal, flag_uav, arglist, actors_cur1, actors_cur2)
+        vNext = iifds.getvNext(q, v, obsCenter, vObs, qBefore, goal, flag_ugv, arglist, actors_cur1, actors_cur2)
         # print(vNext)
         # 根据一阶积分计算下一时刻位置
         qNext = []
@@ -177,7 +192,7 @@ if __name__ == "__main__":
 
         # 计算伤亡情况
         for j in range(iifds.numberofuav):
-            if flag_uav[j] == 1:
+            if flag_ugv[j] == 1:
                 qNext[j] = q[j]
                 vNext[j] = np.array([0, 0, 0])
             else:
@@ -190,7 +205,7 @@ if __name__ == "__main__":
                                 HP_index[ass_index[j]] -= 1
                                 missle_index[j] -= 1
                                 if HP_index[ass_index[j]] == 0:
-                                    flag_uav[ass_index[j]] = 1
+                                    flag_ugv[ass_index[j]] = 1
                         else:
                             missle_index[j] -= 1
                 if missle_index[j] == 0:  # 若子弹未填充完毕，则继续填充且任务会一直设置为逃逸
@@ -205,12 +220,6 @@ if __name__ == "__main__":
         rew_n1 = getReward1(qNext, obsCenterNext, obs_num, goal, iifds, start)  # 每个agent使用相同的路径reward
         rew_n2 = getReward2(qNext, obsCenterNext, obs_num, goal, iifds, start)
 
-        # ===========================
-        # 根据位置和速度绘图
-        # ===========================
-        env.render(q, v, iifds.R_1, all_opp[observe_agent - 1], all_nei[observe_agent - 1], total_HP_index[-1],
-                   iifds.HP_num, total_missle_index[-1] / 2, iifds.missle_num / 2, observe_agent,
-                   task_index, pos_uav, vel_uav)  # 画出上一时刻的无人车的位置速度、血量、弹药，以及无人机的位置速度
 
         if i % fig_interval == 0 and i != 0:  # 将态势保存为图片
             try:
@@ -231,10 +240,10 @@ if __name__ == "__main__":
 
                 filename = f"./fig_text/frame-{i}-@sec.png"
                 img.save(filename)
-                # if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
-                #     iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
-                #                                  all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
-                #                                  observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
+                if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
+                    iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
+                                                 all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
+                                                 observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
             except Exception as e:
                 # pass
                 print("error!")
@@ -267,22 +276,17 @@ if __name__ == "__main__":
             globals()[f'path{j + 1}'] = path_var
             globals()[f'goal{j + 1}'] = goal_var
         ta_index = np.vstack((ta_index, task_index))
-        dead_index = np.vstack((dead_index, flag_uav))
+        dead_index = np.vstack((dead_index, flag_ugv))
         total_missle_index = np.vstack((total_missle_index, missle_index))
         total_HP_index = np.vstack((total_HP_index, HP_index))
 
         # 对抗结束判断
-        if sum(flag_uav[0:int(iifds.numberofuav / 2)]) == int(iifds.numberofuav / 2) or sum(
-                flag_uav[int(iifds.numberofuav / 2):iifds.numberofuav]) == int(iifds.numberofuav / 2):
+        if sum(flag_ugv[0:int(iifds.numberofuav / 2)]) == int(iifds.numberofuav / 2) or sum(
+                flag_ugv[int(iifds.numberofuav / 2):iifds.numberofuav]) == int(iifds.numberofuav / 2):
             break
-        if observe_agent != 0 and flag_uav[observe_agent - 1] == 1:
+        if observe_agent != 0 and flag_ugv[observe_agent - 1] == 1:
             break
-    # for i in range(1, iifds.numberofuav + 1):
-    #     np.savetxt(f'./MADDPG_data_csv/pathMatrix{i}.csv', globals()[f'path{i}'], delimiter=',')
-    #     np.savetxt(f'./MADDPG_data_csv/goalMatrix{i}.csv', globals()[f'goal{i}'], delimiter=',')
-    # np.savetxt('./MADDPG_data_csv/ass_index.csv', ta_index, delimiter=',')
-    # np.savetxt('./MADDPG_data_csv/dead_index.csv', dead_index, delimiter=',')
-    # np.savetxt('./MADDPG_data_csv/total_missle_index.csv', total_missle_index, delimiter=',')
-    # np.savetxt('./MADDPG_data_csv/total_HP_index.csv', total_HP_index, delimiter=',')
-    # np.savetxt('./MADDPG_data_csv/obsCenter.csv', obsCenter, delimiter=',')
+
     plt.show()
+
+    print(f"Using seed: {seed}")  # 打印使用的种子，以便记录
