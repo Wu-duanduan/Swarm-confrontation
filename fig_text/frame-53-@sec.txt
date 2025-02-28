@@ -1,1 +1,0 @@
-Escaping. The green UAV is surrounded by 2 red UAVs (enemy) and 0 blue UAV (teammate). Since enemy forces are present and the average velocity direction of our side is inferior to that of the enemy, the green UAV should perform an escaping mission and use a trajectory prediction algorithm to generate the least likely target points where enemies might appear.

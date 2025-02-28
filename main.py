@@ -149,10 +149,39 @@ if __name__ == "__main__":
         all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei = iifds.detect(q, flag_ugv, ta_index, HP_index,
                                                                                    obsCenter)
         # ===========================
-        # 根据位置和速度绘图
+        # 根据位置和速度绘图并保存图片
         # ===========================
         env.render(q, v, iifds.R_1, all_opp[observe_agent - 1], all_nei[observe_agent - 1],  observe_agent,
                     pos_uav, vel_uav)  # 画出上一时刻的无人车的位置速度，以及无人机的位置速度
+        
+        if i % fig_interval == 0 and i != 0:  # 将态势保存为图片
+            try:
+                color_buffer = pyglet.image.get_buffer_manager().get_color_buffer()
+
+                # 获取图像的原始像素数据
+                image_data = color_buffer.get_image_data()
+
+                # 将数据转换为 NumPy 数组（需要转换为 RGB 格式）
+                img_data = np.frombuffer(image_data.get_data('RGB', image_data.width * 3), dtype=np.uint8)
+                img_data = img_data.reshape((image_data.height, image_data.width, 3))
+
+                # 翻转图像的垂直方向
+                img_data = np.flipud(img_data)  # 或者 img_data = img_data[::-1]
+
+                # 使用 Pillow 保存图像
+                img = PILImage.fromarray(img_data)
+
+                filename = f"./fig_text/frame-{i}-@sec.png"
+                img.save(filename)
+
+                enemy_in_sight = iifds.detect_enemy(filename)# 无人车局部视角判断有无敌军
+                if enemy_in_sight:
+                    print("视野中有敌军（红色车辆）")
+                else:
+                    print("视野中没有敌军")
+            except Exception as e:
+                pass
+                #print("error!")
         # ===========================
 
         # ===========================
@@ -160,11 +189,7 @@ if __name__ == "__main__":
         # ===========================
         # 输入为局部BEV图像
         # 根据感知信息进行任务分配，task_index为任务信息（宏动作）。
-        # 无人车局部视角判断有无友军
-        # filename = f"./fig_text/frame-{i-1}-@sec.png"
 
-        # if observe_agent > 0:
-        #     enemy_in_sight = iifds.find_enemy()
         ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e = iifds.Meanfield(q, v, all_opp, all_nei, all_nei_c2e)
         task_index_blue = iifds.stateSelectionBlue(ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e, missle_index)
         task_index_red = iifds.stateSelectionRed(q, v, missle_index, all_opp, all_nei_c2e, all_close_opp)
@@ -219,36 +244,6 @@ if __name__ == "__main__":
 
         rew_n1 = getReward1(qNext, obsCenterNext, obs_num, goal, iifds, start)  # 每个agent使用相同的路径reward
         rew_n2 = getReward2(qNext, obsCenterNext, obs_num, goal, iifds, start)
-
-
-        if i % fig_interval == 0 and i != 0:  # 将态势保存为图片
-            try:
-                color_buffer = pyglet.image.get_buffer_manager().get_color_buffer()
-
-                # 获取图像的原始像素数据
-                image_data = color_buffer.get_image_data()
-
-                # 将数据转换为 NumPy 数组（需要转换为 RGB 格式）
-                img_data = np.frombuffer(image_data.get_data('RGB', image_data.width * 3), dtype=np.uint8)
-                img_data = img_data.reshape((image_data.height, image_data.width, 3))
-
-                # 翻转图像的垂直方向
-                img_data = np.flipud(img_data)  # 或者 img_data = img_data[::-1]
-
-                # 使用 Pillow 保存图像
-                img = PILImage.fromarray(img_data)
-
-                filename = f"./fig_text/frame-{i}-@sec.png"
-                img.save(filename)
-                if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
-                    iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
-                                                 all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
-                                                 observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
-            except Exception as e:
-                # pass
-                print("error!")
-
-        # ===========================
 
         # ===========================
         # 无人机目标检测模块（王梦晟）

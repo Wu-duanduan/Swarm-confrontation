@@ -893,7 +893,32 @@ class IIFDS:
         else:
             return False
 
-
+    def detect_enemy(image_path):
+        # 读取图片
+        image = cv2.imread(image_path)
+    
+        # 转换为HSV颜色空间
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    
+        # 设置红色的HSV范围
+        lower_red1 = np.array([0, 120, 70])
+        upper_red1 = np.array([10, 255, 255])
+        lower_red2 = np.array([170, 120, 70])
+        upper_red2 = np.array([180, 255, 255])
+    
+        # 使用范围值生成掩码
+        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+        mask = mask1 + mask2
+    
+        # 对原图像和掩码进行位运算
+        result = cv2.bitwise_and(image, image, mask=mask)
+    
+        # 检测掩码中是否有非零像素点，非零即代表存在红色
+        if cv2.countNonZero(mask) > 0:
+            return True
+        else:
+            return False
 
     def find_and_label_regions(self, image_path, task, all_opp, all_nei, assign, pos, flag, episode):
         if len(all_opp) != 0 or len(all_nei) != 0:
