@@ -98,7 +98,7 @@ class Battle(object):
             #     UAV.pos = np.array([(1 - random_side) * 1.8 - 0.9, 1 - (i - self.num_RUAVs + 1) * interval])
             #     UAV.yaw = pi * (1 - random_side)
 
-    def render(self, pos, vel, detect_range, all_opp, all_nei, flag, pos_uav, vel_uav, flag_ugv,
+    def render(self, pos, vel, detect_range, all_opp, all_nei, flag, pos_uav, vel_uav, 
                mode='rgb_array'):
         pos_copy = np.copy(pos)
         vel_copy = np.copy(vel)
@@ -125,10 +125,7 @@ class Battle(object):
 
             # render attack range
             sector = rendering.make_sector(radius=CAR.attack_range, theta=2 * CAR.attack_angle)
-            if flag_ugv[i] == 1:
-                sector.set_color(255, 255, 255, 0.2)
-            else:
-                sector.set_color(*CAR.color, 0.2)
+            sector.set_color(*CAR.color, 0.2)
             sector.add_attr(xform)
             self.render_geoms.append(sector)
             self.render_geoms_xform.append(xform)
