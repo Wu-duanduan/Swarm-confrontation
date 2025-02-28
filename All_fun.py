@@ -893,7 +893,7 @@ class IIFDS:
         else:
             return False
 
-    def detect_enemy(image_path):
+    def detect_enemy(self, image_path):
         # 读取图片
         image = cv2.imread(image_path)
     

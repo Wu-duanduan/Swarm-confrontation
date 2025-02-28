@@ -173,12 +173,11 @@ if __name__ == "__main__":
 
                 filename = f"./fig_text/frame-{i}-@sec.png"
                 img.save(filename)
-
                 enemy_in_sight = iifds.detect_enemy(filename)# 无人车局部视角判断有无敌军
                 if enemy_in_sight:
-                    print("视野中有敌军（红色车辆）")
+                     print("视野中有敌军（红色车辆）")
                 else:
-                    print("视野中没有敌军")
+                     print("视野中没有敌军")
             except Exception as e:
                 pass
                 #print("error!")
