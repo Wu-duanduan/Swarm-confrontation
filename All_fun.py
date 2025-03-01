@@ -15,9 +15,9 @@ class IIFDS:
 
     def __init__(self):
         """基本参数："""
-        self.V1 = 0.2  # 速度大小的最大值限制
-        self.V2 = 0.2
-        self.threshold = 1  # 最大打击距离阈值，在该打击距离下，无人车无法隔墙打击
+        self.V1 = 0.4  # 速度大小的最大值限制
+        self.V2 = 0.4
+        self.threshold = 1 # 最大打击距离阈值，在该打击距离下，无人车无法隔墙打击
         self.threshold2 = 0.4  # 搜索任务的到达距离阈值
         self.threshold3 = 0.4  # 逃跑任务的到达距离阈值
         self.stepSize = 0.1  # 时间间隔步长
@@ -25,15 +25,17 @@ class IIFDS:
         self.numberofuav = 10  # 无人车数量
         self.uavR = 0.3  # 无人车半径
         self.num_com = 1  # 路径规划时考虑的邻居数量
-        self.obsR = 0.3  # 障碍物半径
-        self.R_1 = 10  # 针对敌军的感知半径
-        self.R_2 = 20  # 针对友军的感知半径
+        self.obsR = 0.3 # 障碍物半径
+        self.R_1 = 5  # 针对敌军的感知半径
+        self.R_2 = 5  # 针对友军的通信半径
         self.missle_num = 100  # 最大子弹填充数量
         self.hit_angle = np.pi / 2  # 子弹攻击角度
-        self.hit_rate = 0.5  # 子弹命中概率
+        self.hit_rate = 1  # 子弹命中概率
         self.HP_num = 1  # 初始生命值
         self.end_predict = 0  # 开始预测的回合
         self.vel_fill_missle = 0.5  # 子弹填充速度
+        self.x_max = 11.5 # 场地边界
+        self.y_max = 6.5
         # 初始位置设置
         self.start1 = np.array([random.uniform(0 - 10.85, 1.5 - 10.85), random.uniform(2 - 7.45, 7 - 7.45), 0.8])
         self.start11 = np.array([random.uniform(0 - 10.85, 1.5 - 10.85), random.uniform(7 - 7.45, 12.9 - 7.45), 0.8])
@@ -67,7 +69,7 @@ class IIFDS:
         self.start3 = np.array(
             [random.uniform(20.2 - 10.85, 21.7 - 10.85), random.uniform(5.6 - 7.45, 9.2 - 7.45), 0.8])
 
-        self.start_b = [self.start1, self.start6, self.start3, self.start4, self.start5]
+        self.start_b = [self.start9, self.start6, self.start3, self.start4, self.start5]
         self.start_r = [self.start11, self.start15, self.start13, self.start19, self.start17]
         for i in range(int(self.numberofuav / 2)):
             self.start_b[i][2] = self.start_b[i][2] * 2 / 3
@@ -99,14 +101,20 @@ class IIFDS:
 
     def detect(self, uavPos, flag_uav, ta_index, HP_index, obsCenter):
         all_opp = []
+        all_opp2 = []
         all_nei_c2e = []
         all_nei = []
         all_close_opp = []
+        all_close_opp2 = []
         all_close_nei = []
+        all_close_nei2 = []
         for i in range(self.numberofuav):
             distance1 = np.ones([1, int(self.numberofuav)]) * np.inf
             distance2 = np.ones([1, int(self.numberofuav)]) * np.inf
+            distance3 = np.ones([1, int(self.numberofuav)]) * np.inf
+            distance4 = np.ones([1, int(self.numberofuav)]) * np.inf
             opp = []
+            opp2 = []
             nei = []
             nei_c2e = []
             if i < int(self.numberofuav / 2):
@@ -114,79 +122,61 @@ class IIFDS:
                     if j != i and j >= int(self.numberofuav / 2):  # 敌方判断
                         if flag_uav[j] == 0:  # 存活判断
                             if self.is_within_perception_range(self.R_1, self.R_1, uavPos[i][0:2], uavPos[j][0:2]):  # 感知判断
-                                flag_undetected = 0
-                                for k in range(len(obsCenter)):
-                                    if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
-                                                                      (uavPos[i][0], uavPos[i][1]),
-                                                                      (uavPos[j][0], uavPos[j][1]))) == 2:
-                                        flag_undetected = 1  # 隔墙无法感知敌军
-                                        break
-                                if flag_undetected == 0:
+                                flag_detected = self.detect_obs(uavPos[i],uavPos[j],obsCenter)
+                                if flag_detected == 0:
                                     opp.append(j)  # 存放能感知到的敌军
                                     distance1[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_1 + HP_index[
                                         j] / self.HP_num  # 敌军信息包括位置、血量
+                                opp2.append(j)  # 存放能感知到的敌军（把隔墙的放进来，给全局视角）
+                                distance3[0][j] = self.distanceCost(uavPos[i], uavPos[j])
                     elif j != i and j < int(self.numberofuav / 2):  # 友方判断
                         if flag_uav[j] == 0:  # 存活判断
                             if self.is_within_perception_range(self.R_2, self.R_2, uavPos[i][0:2], uavPos[j][0:2]):  # 记录感知半径范围内的友军
-                                # flag_undetected = 0
-                                # for k in range(len(obsCenter)):
-                                #     if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
-                                #                                       (uavPos[i][0], uavPos[i][1]),
-                                #                                       (uavPos[j][0], uavPos[j][1]))) == 2:
-                                #         flag_undetected = 1  # 隔墙无法感知友军
-                                #         break
-                                # if flag_undetected == 0:
                                 nei.append(j)  # 存放能感知到的友军
+                                distance4[0][j] = self.distanceCost(uavPos[i], uavPos[j])
                                 if ta_index[-1][j] == 0 or ta_index[-1][j] == -2:  # 记录追击和逃跑的友军
+                                    nei_c2e.append(j)
                                     if ta_index[-1][j] == -2:
                                         distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_2 + \
                                                           HP_index[j]/ self.HP_num + self.HP_num   # 友军信息包括位置、血量
                                     else:
                                         distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_2 + \
                                                           HP_index[j]/ self.HP_num
-                                    nei_c2e.append(j)
                 uav_catch = heapq.nsmallest(1, distance1[0])
                 index1 = list(map(distance1[0].tolist().index, uav_catch))
                 uav_contact = heapq.nsmallest(1, distance2[0])
                 index2 = list(map(distance2[0].tolist().index, uav_contact))
+                uav_catch2 = heapq.nsmallest(1, distance3[0])
+                index3 = list(map(distance3[0].tolist().index, uav_catch2))
+                uav_contact2 = heapq.nsmallest(1, distance4[0])
+                index4 = list(map(distance4[0].tolist().index, uav_contact2))
                 all_opp.append(opp)
+                all_opp2.append(opp2)
                 all_nei.append(nei)
                 all_nei_c2e.append(nei_c2e)
                 all_close_opp.append(index1[0])
+                all_close_opp2.append(index3[0])
                 all_close_nei.append(index2[0])
+                all_close_nei2.append(index4[0])
             else:  # 与上述基本相同，但存放敌军和友军信息时，只考虑位置
                 for j in range(self.numberofuav):
                     if j != i and j < int(self.numberofuav / 2):
                         if flag_uav[j] == 0:
                             if self.is_within_perception_range(self.R_1, self.R_1, uavPos[i][0:2], uavPos[j][0:2]):
-                                flag_undetected = 0
-                                for k in range(len(obsCenter)):
-                                    if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
-                                                                      (uavPos[i][0], uavPos[i][1]),
-                                                                      (uavPos[j][0], uavPos[j][1]))) == 2:
-                                        flag_undetected = 1
-                                        break
-                                if flag_undetected == 0:
+                                flag_detected = self.detect_obs(uavPos[i],uavPos[j],obsCenter)
+                                if flag_detected == 0:
                                     opp.append(j)
                                     distance1[0][j] = self.distanceCost(uavPos[i], uavPos[j])
                     elif j != i and j >= int(self.numberofuav / 2):
                         if flag_uav[j] == 0:
                             if self.is_within_perception_range(self.R_2, self.R_2, uavPos[i][0:2], uavPos[j][0:2]):  # 记录感知半径范围内的友军
-                                # flag_undetected = 0
-                                # for k in range(len(obsCenter)):
-                                #     if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
-                                #                                       (uavPos[i][0], uavPos[i][1]),
-                                #                                       (uavPos[j][0], uavPos[j][1]))) == 2:
-                                #         flag_undetected = 1  # 隔墙无法感知友军
-                                #         break
-                                # if flag_undetected == 0:
                                 nei.append(j)
                                 if ta_index[-1][j] == 0 or ta_index[-1][j] == -2:  # 只记录追击和逃跑的友军
+                                    nei_c2e.append(j)
                                     if ta_index[-1][j] == -2:
                                         distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j])
                                     else:
                                         distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j])
-                                    nei_c2e.append(j)
                 uav_catch = heapq.nsmallest(1, distance1[0])
                 index1 = list(map(distance1[0].tolist().index, uav_catch))
                 uav_contact = heapq.nsmallest(1, distance2[0])
@@ -196,7 +186,8 @@ class IIFDS:
                 all_nei_c2e.append(nei_c2e)
                 all_close_opp.append(index1[0])
                 all_close_nei.append(index2[0])
-        return all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei
+        # return all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei
+        return all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei, all_opp2, all_close_opp2, all_close_nei2
 
     def assign(self, uavPos, uavVel, goal, missle_index, epi, pos_b, pos_r, ta_index,
                obsCenter, all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei):
@@ -439,10 +430,10 @@ class IIFDS:
             for j in range(int(self.num_com)):
 
                 if int(self.index_com[i][j]) < self.numberofuav:
-                    repulsiveMatrix += self.calRepulsiveMatrix(uavPos, q[int(self.index_com[i][j])], 2 * self.uavR,
+                    repulsiveMatrix += self.calRepulsiveMatrix2(uavPos, q[int(self.index_com[i][j])], 2 * self.uavR,
                                                                row0,
                                                                goal)
-                    tangentialMatrix += self.calTangentialMatrix(uavPos, q[int(self.index_com[i][j])], 2 * self.uavR,
+                    tangentialMatrix += self.calTangentialMatrix2(uavPos, q[int(self.index_com[i][j])], 2 * self.uavR,
                                                                  theta,
                                                                  sigma0, goal)
                     M = np.eye(3) + repulsiveMatrix + tangentialMatrix
@@ -470,7 +461,7 @@ class IIFDS:
                 uavNextPos = uavPos + ubar * self.stepSize
             else:
                 uavNextPos = uavPos + ubar * self.stepSize
-                # _, _, _, _, uavNextPos = self.kinematicConstrant(uavPos, qBefore, uavNextPos)
+                _, _, _, _, uavNextPos = self.kinematicConstrant(uavPos, qBefore, uavNextPos)
             uavNextPos[2] = uavPos[2]
 
             for j in range(len(obsq)):
@@ -637,10 +628,6 @@ class IIFDS:
         x0, y0, r0 = p
         x1, y1 = lsp
         x2, y2 = esp
-
-        x0, y0, r0 = p
-        x1, y1 = lsp
-        x2, y2 = esp
         x0 = round(x0, 2)
         y0 = round(y0, 2)
         r0 = round(r0, 2)
@@ -775,7 +762,13 @@ class IIFDS:
         temp = np.clip(temp, -1, 1)  # 可能存在精度误差导致上一步的temp略大于1，因此clip
         theta = np.arccos(temp)
         return theta
-
+    def detect_obs(self, uavPos1, uavPos2, obsCenter):
+        for k in range(len(obsCenter)):
+            if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
+                                              (uavPos1[0], uavPos1[1]),
+                                              (uavPos2[0], uavPos2[1]))) == 2:
+                return 1
+        return 0
     def is_within_perception_range(self, x_range, y_range, pos, target):
         """
         判断目标是否在矩形感知范围内
@@ -994,6 +987,283 @@ class IIFDS:
             # 将字符串写入文件
             file.write(output_str)
         print(episode,output_str)
+
+    def detect_area(self, pos1, pos2):
+        if pos1 <= 0 and pos2 >= 0:
+            return ["位于左上部分", 1]
+        elif pos1 > 0 and pos2 >= 0:
+            return ["位于右上部分", 2]
+        elif pos1 > 0 and pos2 < 0:
+            return ["位于右下部分", 3]
+        else:
+            return ["位于左下部分", 4]
+    def label_texts(self, flag_uav, all_opp, all_nei, all_close_opp, all_close_nei, obsCenter, pos, episode, pos_r):
+        output_str0 = ("场景描述：该图片为无人车集群对抗场景的鸟瞰图。场地中共有五台蓝色无人车和五台红色无人车，黑色的线条是不可穿越的静态障碍物。无人车旁边标注的是位置坐标。\n" +
+                        "对抗规则：当无人车靠近敌人时，可以发动攻击并消灭该敌人。每个无人车的弹药是无限的，但一旦收到攻击就会死亡。无人车有一定的观测范围，障碍物会阻挡无人车的视野。\n" +
+                        "决策目标：假如我们要操控蓝色方击败红色方，请结合图片中的信息、场景描述、对抗规则以及专业的作战知识，进行态势分析。\n")
+
+        filename = f"./VLM_prompt/frame-{episode}-@sec.txt"
+        with open(filename, "w", encoding="utf-8") as file:
+            # 将字符串写入文件
+            file.write(output_str0)
+        print(output_str0)
+        
+        output_str1 = "1. 位置与障碍物分析:" + "\n"
+        for i in range(int(self.numberofuav/2)):
+            if flag_uav[i] == 0:
+                output_str1 += "蓝车(%.2f,%.2f)：" % (pos[i][0],pos[i][1]) + self.detect_area(pos[i][0],pos[i][1])[0] +'。'
+                if len(all_opp[i]) != 0 and len(all_nei[i]) != 0:
+                    if self.distanceCost(pos[i], pos[all_close_opp[i]]) < self.distanceCost(pos[i], pos[all_close_nei[i]]):
+                        word_list = ["靠近红色无人车(%.2f,%.2f)" % (pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                     "接近红色无人车(%.2f,%.2f)" % (pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                     "红色无人车(%.2f, %.2f)在附近" % (pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                     ]
+                        output_str1 += random.choice(word_list)
+                        if self.detect_obs(pos[i], pos[all_close_opp[i]], obsCenter) == 1:
+                            output_str1 += random.choice(["，但被障碍物所遮挡，导致互相看不见对方。", '，但由于障碍物的存在，彼此无法看到对方。', "，然而障碍物遮挡了视线，导致无法相互看到。"])
+                        else:
+                            output_str1 += "。"
+                        word_list = ["另外，附近还有蓝色无人车(%.2f,%.2f)" % (pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                     "并且，附近还可以看到一辆蓝色无人车(%.2f, %.2f)" % (pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                     "在附近，还有一辆蓝色无人车(%.2f, %.2f)" % (pos[all_close_nei[i]][0], pos[all_close_nei[i]][1])]
+                        output_str1 += random.choice(word_list)
+                    else:
+                        word_list = ["靠近蓝色无人车(%.2f,%.2f)" % (pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                     "接近蓝色无人车(%.2f,%.2f)" % (pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                     "蓝色无人车(%.2f, %.2f)在附近" % (
+                                     pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                     ]
+                        output_str1 += random.choice(word_list)
+                        if self.detect_obs(pos[i], pos[all_close_nei[i]], obsCenter) == 1:
+                            output_str1 += random.choice(["，但中间被障碍物阻隔。", "，不过，二者之间有障碍物阻挡，导致无法接近。", "，但中间被障碍物所阻隔，无法直接接触。"])
+                        else:
+                            output_str1 += "。"
+                        word_list = [
+                            "另外，附近还有红色无人车(%.2f,%.2f)" % (pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                            "并且，附近还可以看到一辆红色无人车(%.2f, %.2f)" % (
+                            pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                            "在附近，还有一辆红色无人车(%.2f, %.2f)" % (
+                            pos[all_close_opp[i]][0], pos[all_close_opp[i]][1])]
+                        output_str1 += random.choice(word_list)
+                elif len(all_opp[i]) != 0 and len(all_nei[i]) == 0:
+                    word_list = ["靠近红色无人车(%.2f,%.2f)" % (pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                 "接近红色无人车(%.2f,%.2f)" % (pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                 "红色无人车(%.2f, %.2f)在附近" % (pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                 ]
+                    output_str1 += random.choice(word_list)
+                    if self.detect_obs(pos[i], pos[all_close_opp[i]], obsCenter) == 1:
+                        output_str1 += random.choice(["，但被障碍物所遮挡，导致互相看不见对方", '，但由于障碍物的存在，彼此无法看到对方',
+                                     "，然而障碍物遮挡了视线，导致无法相互看到"])
+                elif len(all_opp[i]) == 0 and len(all_nei[i]) != 0:
+                    word_list = ["靠近蓝色无人车(%.2f,%.2f)" % (pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                 "接近蓝色无人车(%.2f,%.2f)" % (pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                 "蓝色无人车(%.2f, %.2f)在附近" % (
+                                     pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                 ]
+                    output_str1 += random.choice(word_list)
+                    if self.detect_obs(pos[i], pos[all_close_nei[i]], obsCenter) == 1:
+                        output_str1 += random.choice(["，但中间被障碍物阻隔", "，不过，二者之间有障碍物阻挡，导致无法接近",
+                                       "，但中间被障碍物所阻隔，无法直接接触"])
+                else:
+                    output_str1 += random.choice(["，远离其他无人车", "，与周围的无人车保持较远的距离", "，远离其他无人车群体"])
+                if -2 < pos[i][1] < 2 or -5 < pos[i][0] < 5:
+                    output_str1 += random.choice(["，周围视野比较开阔", "，四周视野广阔，无遮挡物", "，周围环境开阔，视野良好"])
+                else:
+                    output_str1 += random.choice(["，周围障碍物比较多，地形复杂", "，周围障碍物密集，地形地貌复杂", "，周围存在较多障碍物，地形也较为复杂"])
+                output_str1 += "。\n"
+
+        output_str1 += "\n" + "2. 总体策略:" + "\n"
+
+        area_b = [0, 0, 0, 0]
+        area_r = [0, 0, 0, 0]
+
+        for i in range(self.numberofuav):
+            if flag_uav[i] == 0:
+                if i < self.numberofuav / 2:
+                    for j in range(len(area_b)):
+                        if self.detect_area(pos[i][0], pos[i][1])[1] == j + 1:
+                            area_b[j] += 1
+                else:
+                    for j in range(len(area_r)):
+                        if self.detect_area(pos[i][0], pos[i][1])[1] == j + 1:
+                            area_r[j] += 1
+                        
+        flag = [0,0,0,0]
+        word_list_fixed = ["左上区域:", "右上区域：", "右下区域：", "左下区域："]
+        for j in range(len(area_b)):
+            if area_b[j] > 0:
+                output_str1 += word_list_fixed[j]
+                if area_b[j] > area_r[j]:
+                    flag[j] = 1
+                    output_str1 += random.choice(["该区域内蓝色无人车数量占优，可以凭借数量优势对附近的红色无人车进行攻击。",
+                                                 "蓝色无人车在该区域数量较多，具备利用数量优势攻击周围红色无人车的条件。",
+                                                 "该区域的蓝色无人车可以利用数量优势，对红色无人车发动集中攻击，争取快速消灭敌人。",
+                                                 "该区域的蓝色无人车可以凭借数量上的优势，针对红色无人车展开集中攻击，力求快速击溃敌人。"])
+                    output_str1 += "\n"
+                elif area_b[j] == area_r[j]:
+                    if area_b[j] > 1:
+                        flag[j] = 2
+                        output_str1 += random.choice(
+                            ["该区域的蓝色方和红色方势力相当，建议寻找附近的友军形成同盟，协同作战。",
+                             "蓝色方与红色方在该区域的力量相当，建议与周围的友军结成同盟，联合对抗。",
+                             "该区域内，蓝色方与红色方势力相当，建议与附近的友军联合，协同作战以增强优势。",
+                             "该区域蓝色方与红色方的对抗势均力敌，建议与邻近友军合作，形成优势互补。"])
+                        output_str1 += "\n"
+                    else:
+                        flag[j] = 3
+                        output_str1 += random.choice(
+                            ["区域的蓝色方和红色方势力相当，蓝色无人车需要灵活机动，避免被围困，同时寻找合适的攻击角度。",
+                             "蓝色方与红色方在该区域的力量平衡，蓝色无人车需灵活机动，避免陷入围困，并寻求有利的攻击角度。",
+                             "由于蓝色方与红色方在该区域的势力相当，蓝色无人车需保持机动性，避免遭遇围攻，并寻找最佳的攻击角度。",
+                             "在该区域，蓝色方与红色方的力量相当，蓝色无人车应采取灵活机动的战术，避免被困，同时寻找最佳的进攻角度。"])
+                        output_str1 += "\n"
+                else:
+                    if area_b[j] > 1:
+                        if random.random() > 0.7:
+                            flag[j] = 4
+                            output_str1 += random.choice(
+                                ["该区域的蓝色方无人车较少，应该分头逃至安全区域，以防被围剿团灭。",
+                                "由于该区域蓝色方无人车较为稀少，应该分头撤退至安全区域，以防被敌方围攻并遭到全歼。",
+                                "蓝色方无人车在该区域较少，应分散并迅速逃向安全区域，防止被敌方围剿并全军覆没。",
+                                "该区域蓝色方无人车数量有限，建议分散撤离，逃向安全区域，以避免被敌军包围并最终被消灭。"])
+                            output_str1 += "\n"
+                        else:
+                            flag[j] = 5
+                            output_str1 += random.choice(
+                                ["区域的蓝色方无人车较少，可以通过分散牵制，吸引敌人的注意力，为其他区域的战斗创造有利条件。",
+                                 "该区域的蓝色方无人车较为稀少，可以采取分散行动，牵制敌人的注意力，进而为其他区域的战斗创造有利局面。",
+                                 "蓝色方无人车在该区域数量较少，可以通过分散战术来牵制敌人，吸引敌方的关注，从而为其他区域的行动创造机会。",
+                                 "由于该区域蓝色方无人车较少，可以通过分散牵制敌人，转移敌方注意力，为其他区域的战斗提供有利条件。"])
+                            output_str1 += "\n"
+                    else:
+                        flag[j] = 4
+                        output_str1 += random.choice(
+                            ["该区域的蓝色方无人车较少，应该分头逃至安全区域，以防被围剿团灭。",
+                             "由于该区域蓝色方无人车较为稀少，应该分头撤退至安全区域，以防被敌方围攻并遭到全歼。",
+                             "蓝色方无人车在该区域较少，应分散并迅速逃向安全区域，防止被敌方围剿并全军覆没。",
+                             "该区域蓝色方无人车数量有限，建议分散撤离，逃向安全区域，以避免被敌军包围并最终被消灭。"])
+                        output_str1 += "\n"
+
+        filename = f"./VLM_answer/frame-{episode}-@sec.txt"
+        with open(filename, "w", encoding="utf-8") as file:
+            # 将字符串写入文件
+            file.write(output_str1)
+        print(output_str1)
+        
+        output_str2 = output_str0 + "\n" + output_str1 + "\n基于以上态势分析，请给出蓝色无人车调度建议。"
+        filename = f"./LLM_prompt/frame-{episode}-@sec.txt"
+        with open(filename, "w", encoding="utf-8") as file:
+            # 将字符串写入文件
+            file.write(output_str2)
+        print("基于以上态势分析，请给出蓝色无人车调度建议。\n")
+
+        output_str3 = "3. 调度建议:" + "\n"
+
+        for i in range(int(self.numberofuav / 2)):
+            if flag_uav[i] == 0:
+                output_str3 += "蓝车(%.2f,%.2f)：" % (pos[i][0], pos[i][1])
+                for j in range(4):
+                    if self.detect_area(pos[i][0], pos[i][1])[1] == j+1:
+                        if flag[j] == 1:
+                            word_list = ["无人车应该对红色无人车(%.2f,%.2f)发起攻击" % (pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                         "无人车应对位于(%.2f, %.2f)的红色无人车发起进攻" % (pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                         "无人车应对红色无人车(%.2f, %.2f)采取攻击行动" % (pos[all_close_opp[i]][0], pos[all_close_opp[i]][1])]
+                            output_str3 += random.choice(word_list)
+                            if self.detect_obs(pos[i], pos[all_close_opp[i]], obsCenter) == 1:
+                                output_str3 += random.choice(["，但由于障碍物的存在，直接攻击可能受阻。建议蓝色无人车尝试绕过障碍物，寻找合适的攻击角度。",
+                                                             "，但障碍物的存在可能会阻碍直接攻击。建议蓝色无人车尝试绕过障碍物，并寻找合适的攻击位置。",
+                                                             "，但障碍物阻挡了直接攻击的路径，蓝色无人车应寻找绕过障碍物的方式，并确定最佳的攻击位置。"])
+                            else:
+                                output_str3 += random.choice(["，该区域障碍物较少，适合快速移动和攻击。建议蓝色无人车迅速接近红色无人车，发动攻击。",
+                                                             "，该区域的障碍物较少，有利于快速移动和攻击。建议蓝色无人车快速接近红色无人车，立即展开攻击。",
+                                                             "，由于该区域障碍物稀少，蓝色无人车可快速接近红色无人车并发动攻击。"])
+                        elif flag[j] == 2:
+                            word_list = ["无人车应该寻找蓝色无人车(%.2f,%.2f)支援" % (pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                         "无人车应寻求蓝色无人车(%.2f, %.2f)的帮助以增强作战力量" % (pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                         "无人车应向蓝色无人车(%.2f, %.2f)寻求协助，增强战力" % (pos[all_close_nei[i]][0], pos[all_close_nei[i]][1])]
+                            output_str3 += random.choice(word_list)
+                            if self.detect_obs(pos[i], pos[all_close_nei[i]], obsCenter) == 1:
+                                output_str3 += random.choice(["，需要注意的是，该区域障碍物较多，需要灵活机动，避免被围困。",
+                                                            "，需要留意的是，区域内障碍物较多，蓝色无人车需灵活机动，避免被敌方围困。",
+                                                             "，需要关注的是，区域内障碍物较为密集，蓝色无人车应保持灵活机动，防止被敌人包围。"])
+                            else:
+                                output_str3 += random.choice(["，该区域障碍物较少，建议蓝色无人车迅速结成同盟。",
+                                                             "，该区域障碍物少，蓝色无人车应迅速结成同盟，形成优势互补。",
+                                                             "，在该区域，障碍物较少，蓝色无人车应及时结成同盟，共同应对挑战。"])
+                        elif flag[j] == 3:
+                            if random.random() > 0.5:
+                                word_list = ["无人车应该寻找蓝色无人车(%.2f,%.2f)支援" % (
+                                pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                             "无人车应寻求蓝色无人车(%.2f, %.2f)的帮助以增强作战力量" % (
+                                             pos[all_close_nei[i]][0], pos[all_close_nei[i]][1]),
+                                             "无人车应向蓝色无人车(%.2f, %.2f)寻求协助，增强战力" % (
+                                             pos[all_close_nei[i]][0], pos[all_close_nei[i]][1])]
+                                output_str3 += random.choice(word_list)
+                                if self.detect_obs(pos[i], pos[all_close_nei[i]], obsCenter) == 1:
+                                    output_str3 += random.choice(
+                                        ["，需要注意的是，该区域障碍物较多，需要灵活机动，避免被围困。",
+                                         "，需要留意的是，区域内障碍物较多，蓝色无人车需灵活机动，避免被敌方围困。",
+                                         "，需要关注的是，区域内障碍物较为密集，蓝色无人车应保持灵活机动，防止被敌人包围。"])
+                                else:
+                                    output_str3 += random.choice(["，该区域障碍物较少，建议蓝色无人车迅速结成同盟。",
+                                                                 "，该区域障碍物少，蓝色无人车应迅速结成同盟，形成优势互补。",
+                                                                 "，在该区域，障碍物较少，蓝色无人车应及时结成同盟，共同应对挑战。"])
+                            else:
+                                word_list = ["无人车应该进攻红色无人车(%.2f,%.2f)，但要注意该区域红蓝方势力相当，需要灵活机动，避免被围困。" % (
+                                pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                             "无人车应攻击红色无人车(%.2f, %.2f)，然而该区域内红蓝方势力对等，需要灵活机动以免被敌人包围。" % (
+                                                 pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                             "无人车应对红色无人车(%.2f, %.2f)发动攻击，但要小心，该区域红蓝双方势力相当，需要灵活机动以避免陷入包围。" % (
+                                                 pos[all_close_opp[i]][0], pos[all_close_opp[i]][1])
+                                             ]
+                                output_str3 += random.choice(word_list)
+                        elif flag[j] == 4 or (flag[j] == 5 and random.random() > 0.5):
+                            finder = FindSafeSpot(pos_r, pos[i][0:2], obsCenter, self.timeStep, self.obsR + self.uavR)
+                            temp = finder.predict_trajectory(10)
+                            safe_point = finder.find_safe_spot(list(temp.values()))
+                            word_list = ["无人车应该快速逃往安全区域，例如(%.2f,%.2f)" % (safe_point[0], safe_point[1]),
+                                         "无人车应迅速向安全区域(%.2f, %.2f)撤离" % (safe_point[0], safe_point[1]),
+                                         "无人车应尽快转移至安全区域，位置为(%.2f, %.2f)" % (safe_point[0], safe_point[1])]
+                            output_str3 += random.choice(word_list)
+                            if self.detect_obs(pos[i], pos[all_close_nei[i]], obsCenter) == 1:
+                                output_str3 += random.choice(
+                                    ["，需要注意的是，该区域障碍物较多，需要灵活机动，避免被围困。",
+                                     "，需要留意的是，区域内障碍物较多，蓝色无人车需灵活机动，避免被敌方围困。",
+                                     "，需要关注的是，区域内障碍物较为密集，蓝色无人车应保持灵活机动，防止被敌人包围。"])
+                            else:
+                                output_str3 += random.choice(["，该区域障碍物较少，建议蓝色无人车快速机动，摆脱追捕。",
+                                                             "，该区域障碍物稀少，蓝色无人车应采取迅速机动的方式，摆脱敌人追击。",
+                                                             "，该区域障碍物较少，建议蓝色无人车利用灵活机动迅速脱离敌人追击。"])
+                        else:
+                            word_list = ["无人车应该对红色无人车(%.2f,%.2f)发起攻击" % (
+                            pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                         "无人车应对位于(%.2f, %.2f)的红色无人车发起进攻" % (
+                                         pos[all_close_opp[i]][0], pos[all_close_opp[i]][1]),
+                                         "无人车应对红色无人车(%.2f, %.2f)采取攻击行动" % (
+                                         pos[all_close_opp[i]][0], pos[all_close_opp[i]][1])]
+                            output_str3 += random.choice(word_list)
+                            output_str3 += random.choice(["，通过牺牲自己，吸引敌人的注意力，为其他区域的战斗创造有利条件。",
+                                                         "，以自我牺牲为代价，吸引敌人关注，为其他区域的战斗争取有利时机。",
+                                                         "，通过牺牲自己，吸引敌人注意，为其他区域的战略部署创造有利局面。"])
+            output_str3 += "\n"
+        filename = f"./LLM_answer/frame-{episode}-@sec.txt"
+        with open(filename, "w", encoding="utf-8") as file:
+            # 将字符串写入文件
+            file.write(output_str3)
+        print(output_str3)
+
+    def change_pos(self, blue_pos, red_pos, q):
+        a = np.array(blue_pos + red_pos)  # 数组 a
+        b = [arr[:2] for arr in q]  # 数组 b
+        # 迭代数组 a 中的每个数
+        for j in range(len(a)):
+            # 计算 b 中每个元素与 a[i] 的差距
+            diff = np.linalg.norm(np.abs(b - a[j]), axis=1)
+            # 找到 b 中最接近 a[i] 的数的索引
+            closest_index = np.argmin(diff)
+            # 用 a[i] 替换 b 中最接近的数
+            b[closest_index] = a[j]
+        return b
 
 if __name__ == "__main__":
     iifds = IIFDS()

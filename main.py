@@ -20,6 +20,7 @@ import pyglet
 from pyglet import image
 from PIL import Image as PILImage, ImageDraw
 import time
+from sim_locate_method import locate_cars
 
 seed = 0
 np.random.seed(seed)
@@ -82,7 +83,6 @@ if __name__ == "__main__":
         q.append(start[i])
         qBefore.append([None, None, None])
         v.append((q[i] - q[i]) / iifds.timeStep)  # 初始速度置为0。
-
     # 使用 globals() 将每个无人车的路径和目标动态赋值给 pathX 和 goalX。
     path = []
     target = []
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     total_missle_index = missle_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
     total_HP_index = HP_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
 
-    fig_interval = 15
+    fig_interval = 3
     observe_agent = 0  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号
     for i in range(3000):
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         # 无人车态势感知模块（范沛源）
         # ===========================
         # （目前是基于通信）检测在无人车群体中每个无人车感知半径内的敌方、友方、正在追逐或者逃跑的友方，与其最接近的敌方和友方的序号。
-        all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei = iifds.detect(q, flag_uav, ta_index, HP_index,
+        all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei, all_opp2, all_close_opp2, all_close_nei2 = iifds.detect(q, flag_uav, ta_index, HP_index,
                                                                                    obsCenter)
         # ===========================
 
@@ -139,12 +139,9 @@ if __name__ == "__main__":
         # 无人机任务分配模块（孙若斋）
         # ===========================
         # 根据感知信息进行任务分配，goal为分配后的各无人车目标位置，ass_index为追击或支援无人车分配的目标序号，task_index为任务信息。
-        start_t = time.time()
         goal, ass_index, task_index = iifds.assign(q, v, goal, missle_index, i,
                                                    pos_b, pos_r, ta_index, obsCenter, all_opp, all_nei, all_nei_c2e,
                                                    all_close_opp, all_close_nei)
-        end_t = time.time()
-        print("决策时间:", end_t - start_t, "s")
         # ===========================
 
         ta_index = np.vstack((ta_index, task_index))
@@ -214,15 +211,23 @@ if __name__ == "__main__":
                 # 翻转图像的垂直方向
                 img_data = np.flipud(img_data)  # 或者 img_data = img_data[::-1]
 
-                # 使用 Pillow 保存图像
-                img = PILImage.fromarray(img_data)
+                # # 使用 Pillow 保存图像
+                # img = PILImage.fromarray(img_data)
+                #
+                # filename = f"./fig_text/frame-{i}-@sec.png"
+                # img.save(filename)
 
-                filename = f"./fig_text/frame-{i}-@sec.png"
-                img.save(filename)
+                filename = f"./loc_fig/frame-{i}-@sec.png"
+                red_pos, blue_pos = locate_cars(img_data, image_data.height, image_data.width, save_flag=True,
+                                                save_path=filename)
                 # if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
                 #     iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
                 #                                  all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
                 #                                  observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
+                detect_pos = iifds.change_pos(blue_pos, red_pos, q)
+
+                if observe_agent == 0:
+                    iifds.label_texts(flag_uav, all_opp2, all_nei, all_close_opp2, all_close_nei2, obsCenter, detect_pos, i, pos_r)  # 存储上一时刻的序号以及友军任务情况照片
             except Exception as e:
                 # pass
                 print("error!")

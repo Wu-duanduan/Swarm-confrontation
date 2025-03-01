@@ -122,11 +122,11 @@ class Battle(object):
                 self.render_geoms_xform.append(xform)
 
             # render attack range
-            sector = rendering.make_sector(radius=CAR.attack_range, theta=2 * CAR.attack_angle)
-            sector.set_color(*CAR.color, 0.2)
-            sector.add_attr(xform)
-            self.render_geoms.append(sector)
-            self.render_geoms_xform.append(xform)
+            # sector = rendering.make_sector(radius=CAR.attack_range, theta=2 * CAR.attack_angle)
+            # sector.set_color(*CAR.color, 0.2)
+            # sector.add_attr(xform)
+            # self.render_geoms.append(sector)
+            # self.render_geoms_xform.append(xform)
 
             # if flag == 0:
             #     if task[i] == -3:
