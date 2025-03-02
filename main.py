@@ -109,7 +109,7 @@ if __name__ == "__main__":
     total_HP_index = HP_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
 
     fig_interval = 15
-    observe_agent = 0  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号
+    observe_agent = 1  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号
     for i in range(3000):
 
         # 路径拼接
@@ -196,9 +196,12 @@ if __name__ == "__main__":
         # ===========================
         # 根据位置和速度绘图
         # ===========================
-        env.render(q, v, iifds.R_1, all_opp[observe_agent - 1], all_nei[observe_agent - 1], total_HP_index[-1],
-                   iifds.HP_num, total_missle_index[-1] / 2, iifds.missle_num / 2, observe_agent,
-                   task_index)  # 画出上一时刻的无人车的位置速度、血量、弹药，以及无人机的位置速度
+        # env.render(q, v, iifds.R_1, all_opp[observe_agent - 1], all_nei[observe_agent - 1], total_HP_index[-1],
+        #            iifds.HP_num, total_missle_index[-1] / 2, iifds.missle_num / 2, observe_agent,
+        #            task_index)  # 画出上一时刻的无人车的位置速度、血量、弹药，以及无人机的位置速度
+        
+        FOV = 70
+        env.render_BEV(q, v, iifds.R_1, FOV, observe_agent)
 
         if i % fig_interval == 0 and i != 0:  # 将态势保存为图片
             try:

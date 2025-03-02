@@ -128,121 +128,7 @@ class Battle(object):
             self.render_geoms.append(sector)
             self.render_geoms_xform.append(xform)
 
-            # if flag == 0:
-            #     if task[i] == -3:
-            #         color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
-            #     elif task[i] == -2:
-            #         color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
-            #     elif task[i] == -1:
-            #         color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
-            #     elif task[i] == 0:
-            #         color_temp = np.array([0, 1, 0])  # 绿色
-            #     sector = rendering.make_circle(radius=0.5)
-            #     sector.set_color(*color_temp, 0.4)
-            #     sector.add_attr(xform)
-            #     self.render_geoms.append(sector)
-            #     self.render_geoms_xform.append(xform)
-            # elif flag > 0:
-            #     if task[i] == -3:
-            #         color_temp = np.array([0.5, 0.5, 0.5])  # 灰色
-            #     elif task[i] == -2:
-            #         color_temp = np.array([1.0, 1.0, 0.0])  # 黄色
-            #     elif task[i] == -1:
-            #         color_temp = np.array([0.5, 0.0, 0.5])  # 紫色
-            #     elif task[i] == 0:
-            #         color_temp = np.array([0, 1, 0])  # 绿色
-            #     if i in all_nei:
-            #         sector = rendering.make_circle(radius=0.5)
-            #     else:
-            #         sector = rendering.make_circle(radius=0)
-            #     sector.set_color(*color_temp, 0.4)
-            #     sector.add_attr(xform)
-            #     self.render_geoms.append(sector)
-            #     self.render_geoms_xform.append(xform)
         self.length_temp1 = len(self.render_geoms)
-
-        # # 动态绘制血条
-        # health_bar_width = 0.5  # 每个格子的宽度
-        # health_bar_height = 0.1  # 格子的高度
-        # max_health = HP_num  # 假设血量最大为 100
-        # num_cells = HP_num  # 假设血条由 10 个格子组成
-        #
-        # # 创建血条的位置变换
-        # health_xform = rendering.Transform()
-        #
-        # # 动态绘制血条格子
-        # for j in range(num_cells):
-        #     # 每个格子的位置
-        #     x_offset = j * health_bar_width - 0.5  # 水平偏移，使得格子居中
-        #     health_bar = rendering.FilledPolygon([
-        #         (x_offset, 0),  # 左下角
-        #         (x_offset + health_bar_width, 0),  # 右下角
-        #         (x_offset + health_bar_width, health_bar_height),  # 右上角
-        #         (x_offset, health_bar_height)  # 左上角
-        #     ])
-        #     if flag == 0:
-        #         if HP_index[i] == 0:
-        #             health_bar.set_color(1, 1, 1, 0)  # 白色表示无血量
-        #         elif j < HP_index[i] / (max_health / num_cells):  # 计算应该显示的格子数量
-        #             health_bar.set_color(255/255, 165/255, 0)  # 红色表示有血量
-        #         else:
-        #             health_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无血量
-        #     else:
-        #         if HP_index[i] == 0 or ((i != flag - 1) and (i not in all_opp) and (i not in all_nei)):
-        #             health_bar.set_color(1, 1, 1, 0)  # 白色表示无血量
-        #         elif j < HP_index[i] / (max_health / num_cells):  # 计算应该显示的格子数量
-        #             health_bar.set_color(255/255, 165/255, 0)  # 红色表示有血量
-        #         else:
-        #             health_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无血量
-        #     if HP_index[i] != 0:
-        #         # 为血条设置位置和旋转
-        #         health_bar.add_attr(health_xform)
-        #         # 设置血条的 Y 坐标偏移，使其在 UAV 上方
-        #         health_xform.set_translation(pos_copy[i][0] - 0.5, pos_copy[i][1] + UAV.size + 0.5)  # 偏移 0.3 让血条在 UAV 上方
-        #     self.render_geoms.append(health_bar)
-        #     self.render_geoms_xform.append(xform)
-        #
-        # # 动态绘制弹药
-        # missle_bar_width = 0.5  # 每个格子的宽度
-        # missle_bar_height = 0.1  # 格子的高度
-        # max_missle = missle_num  # 假设弹药最大为 100
-        # num_cells = int(missle_num)  # 假设弹药由 10 个格子组成
-        #
-        # # 创建弹药的位置变换
-        # missle_xform = rendering.Transform()
-        #
-        # # 动态绘制弹药格子
-        # for j in range(num_cells):
-        #     # 每个格子的位置
-        #     x_offset = j * missle_bar_width - 0.5  # 水平偏移，使得格子居中
-        #     missle_bar = rendering.FilledPolygon([
-        #         (x_offset, 0),  # 左下角
-        #         (x_offset + missle_bar_width, 0),  # 右下角
-        #         (x_offset + missle_bar_width, missle_bar_height),  # 右上角
-        #         (x_offset, missle_bar_height)  # 左上角
-        #     ])
-        #     if flag == 0:
-        #         if missle_index[i] == 0 or HP_index[i] == 0:
-        #             missle_bar.set_color(1, 1, 1, 0)  # 白色表示无弹药
-        #         elif j < missle_index[i] / (max_missle / num_cells):  # 计算应该显示的格子数量
-        #             missle_bar.set_color(0, 1, 0)  # 绿色表示有弹药
-        #         else:
-        #             missle_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无弹药
-        #     else:
-        #         if missle_index[i] == 0 or HP_index[i] == 0 or (
-        #                 (i != flag - 1) and (i not in all_opp) and (i not in all_nei)):
-        #             missle_bar.set_color(1, 1, 1, 0)  # 白色表示无弹药
-        #         elif j < missle_index[i] / (max_missle / num_cells):  # 计算应该显示的格子数量
-        #             missle_bar.set_color(0, 1, 0)  # 绿色表示有弹药
-        #         else:
-        #             missle_bar.set_color(0.5, 0.5, 0.5)  # 灰色表示无弹药
-        #     if missle_index[i] != 0:
-        #         # 为弹药设置位置和旋转
-        #         missle_bar.add_attr(missle_xform)
-        #         # 设置弹药的 Y 坐标偏移，使其在 UAV 上方
-        #         missle_xform.set_translation(pos_copy[i][0] - 0.5, pos_copy[i][1] + UAV.size + 0.3)  # 偏移 0.3 让弹药在 UAV 上方
-        #     self.render_geoms.append(missle_bar)
-        #     self.render_geoms_xform.append(xform)
 
         # 渲染静态障碍物
         self.render_static_obstacles()
@@ -281,8 +167,63 @@ class Battle(object):
 
         results.append(self.viewer.render(return_rgb_array=mode == 'rgb_array'))
         return results
+    
+    def render_BEV(self, pos, vel, detect_range, FOV, flag, mode='rgb_array'):
+        if FOV > np.pi:
+            FOV = FOV / 180 * np.pi
+        if self.viewer is None:
+            self.viewer = rendering.Viewer(500, 500)
+            pygame.init()
+        # 每次渲染时清除旧的几何对象
+        self.render_geoms = []
+        self.render_geoms_xform = []
 
-    def render_static_obstacles(self):
+        ego_pos = pos[flag - 1][:2]
+        ego_vel = vel[flag - 1][:2]
+        ego_yaw = np.arctan(ego_vel[1] / ego_vel[0])
+
+        for i, CAR in enumerate(self.CARs):  # 添加无人车以及攻击范围
+            if i == flag - 1:
+                CAR.color = np.array([0, 1, 0])
+            xform = rendering.Transform()
+            for x in rendering.make_CAR(CAR.size):
+                x.set_color(*CAR.color)
+                x.add_attr(xform)
+                self.render_geoms.append(x)
+                self.render_geoms_xform.append(xform)
+
+        self.length_temp1 = len(self.render_geoms)
+
+        # 渲染静态障碍物
+        self.render_static_obstacles(ego_pos, ego_yaw, BEV_mode=True)
+        self.viewer.geoms = []
+        for geom in self.render_geoms:
+            self.viewer.add_geom(geom)
+        results = []
+        if flag == 0:
+            self.viewer.set_bounds(-15, +15, -8, +8)
+        else:
+            self.viewer.camera_follow(ego_pos, ego_yaw, FOV, detect_range)
+
+        for i, CAR in enumerate(self.CARs):  # 无人车以及攻击范围需要旋转
+            idx_ratio = self.length_temp1 // self.num_CARs
+            for idx in range(idx_ratio):
+                self.render_geoms_xform[idx_ratio * i + idx].set_translation(*pos[i][0:2])
+
+                if vel[i][1] >= 0 and vel[i][0] >= 0:
+                    self.render_geoms_xform[idx_ratio * i + idx].set_rotation(
+                        np.arctan(vel[i][1] / vel[i][0]))
+                elif vel[i][1] < 0 and vel[i][0] >= 0:
+                    self.render_geoms_xform[idx_ratio * i + idx].set_rotation(
+                        np.arctan(vel[i][1] / vel[i][0]))
+                else:
+                    self.render_geoms_xform[idx_ratio * i + idx].set_rotation(
+                        np.arctan(vel[i][1] / vel[i][0]) + np.pi)
+
+        results.append(self.viewer.render(return_rgb_array=mode == 'rgb_array'))
+        return results
+
+    def render_static_obstacles(self, ego_pos=(0, 0), ego_yaw=0, BEV_mode=False):
         import rendering
         # 定义一些静态障碍物的矩形参数：位置（x, y）、宽度（w）、高度（h）
         obstacles = [
@@ -350,7 +291,6 @@ class Battle(object):
 
         for obs in obstacles:
             xform = rendering.Transform()
-
             # 创建矩形障碍物
             rect = rendering.make_polygon([
                 (0, 0),
@@ -368,7 +308,16 @@ class Battle(object):
             self.render_geoms_xform.append(xform)
 
             # 设置障碍物的位置
-            xform.set_translation(*obs["pos"])
+            # if BEV_mode:
+            if False:
+                # 应用旋转变换
+                x, y = obs["pos"]
+                x_new = (x - ego_pos[0]) * np.cos(ego_yaw) - (y - ego_pos[1]) * np.sin(ego_yaw) + ego_pos[0]
+                y_new = (x - ego_pos[0]) * np.sin(ego_yaw) + (y - ego_pos[1]) * np.cos(ego_yaw) + ego_pos[1]
+                xform.set_translation(x_new, y_new)
+                xform.set_rotation(ego_yaw)
+            else:
+                xform.set_translation(*obs["pos"])
 
     def close(self):
         pass

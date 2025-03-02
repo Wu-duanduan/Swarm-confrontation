@@ -81,6 +81,23 @@ class Viewer(object):
             translation=(-left * scalex, -bottom * scaley),
             scale=(scalex, scaley))
 
+    def camera_follow(self, ego_pos, ego_yaw, FOV, detect_range):
+        ego_yaw = ego_yaw - np.pi / 2  # 小车朝向同y方向
+        x_range = detect_range * np.tan(FOV / 2) * 2
+        y_range = detect_range
+        scale_x = self.width / x_range
+        scale_y = self.height / y_range
+
+        translation_x = -ego_pos[0] * scale_x
+        translation_y = -ego_pos[1] * scale_y + self.height / 2
+        rotation = -ego_yaw  # 负号是因为OpenGL的旋转方向与常规的坐标系相反
+
+        # 设置相机的变换
+        self.transform.set_translation(translation_x, translation_y)
+        self.transform.set_rotation(rotation)
+        self.transform.set_scale(scale_x, scale_y)
+
+
     def add_geom(self, geom):
         self.geoms.append(geom)
 
