@@ -108,6 +108,45 @@ if __name__ == "__main__":
     total_missle_index = missle_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
     total_HP_index = HP_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
 
+    # ===========================
+    # 仿真环境动力学约束初始化（马子豪）
+    # ===========================
+    # 根据历史信息强化学习收敛速度和随机参数的数量有关
+    # 收敛速度的上界为O((SA)^M)，其中M为随机参数的数量
+    random_params = {
+        # 动力学约束随机参数
+        "cars_mass" : np.random.uniform(98, 102, iifds.numberofuav),
+        "cars_force" : np.random.uniform(196, 200, iifds.numberofuav),
+        "cars_power" : np.random.uniform(96, 100, iifds.numberofuav),
+        "cars_friction_coefficient" : np.random.uniform(0.08, 0.12, iifds.numberofuav),
+        "collision_coefficient" : random.random() / 2 + 0.5,
+        # 感知随机参数
+        "cars_position_noise" : np.random.uniform(0.01, 0.03, iifds.numberofuav),
+    }
+
+
+    from physical_law import PhysicalLaw
+    physical_law = PhysicalLaw(
+        cars_mass=random_params["cars_mass"],  # 小车质量, 1维向量
+        cars_force=random_params["cars_force"],  # 小车动力, 1维向量
+        cars_power=random_params["cars_power"],  # 小车功率, 1维向量
+        cars_friction_coefficient=random_params["cars_friction_coefficient"],  # 小车的摩擦系数, 1维向量
+        cars_size = [[iifds.uavR, iifds.uavR]] * iifds.numberofuav,  # 小车的长宽, 2维向量
+        cars_wheel_spacing=[1] * iifds.numberofuav,  # 小车的轮间距, 1维向量
+        cars_wheel_radius=[2] * iifds.numberofuav,  # 小车的轮半径, 1维向量
+        obstacles_center=obsCenter[:, :2],  # 障碍物的中心点, 2维向量
+        obstacles_radius=0.1,  # 障碍物的半径, 1维向量
+        timestep=iifds.timeStep,  # 时间步长
+        collision_coefficient=random_params["collision_coefficient"],  # 碰撞系数
+    )
+
+    from perception_random import PerceptionPosition
+    perception_q = PerceptionPosition(
+        random_range=random_params["cars_position_noise"],  # 无人机位置噪声, 1维向量
+    )
+    perception_q.updata_actrual_q(q)
+    # ===========================
+
     fig_interval = 15
     observe_agent = 0  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号
     for i in range(3000):
@@ -159,9 +198,21 @@ if __name__ == "__main__":
         vNext = iifds.getvNext(q, v, obsCenter, vObs, qBefore, goal, flag_uav, arglist, actors_cur1, actors_cur2)
         # print(vNext)
         # 根据一阶积分计算下一时刻位置
-        qNext = []
-        for j in range(iifds.numberofuav):
-            qNext.append(q[j] + vNext[j] * iifds.timeStep)
+        # ===========================
+        # 无人车物理约束模块（马子豪）
+        # ===========================
+        # 无人车物理约束模块，输入为当前位置、速度、目标位置、角速度、时间步长，输出为下一时刻的位置、速度、角速度。
+        start_t = time.time()
+        qNext, vNext = physical_law.get_qvNext(q, v, vNext)
+        end_t = time.time()
+        print("物理约束时间:", end_t - start_t, "s")
+        # print(f"现存无人车数量：{iifds.numberofuav - np.sum(flag_uav)}")
+        # print(f"速度为0的无人车的数量：{np.sum(np.linalg.norm(vNext, axis=1) == 0)}")
+        # print(f"整体移动的距离:{np.sum(np.linalg.norm(q - qNext, axis=1))}")
+        # qNext = []
+        # for j in range(iifds.numberofuav):
+        #     qNext.append(q[j] + vNext[j] * iifds.timeStep)
+        # ===========================
 
         # 计算伤亡情况
         for j in range(iifds.numberofuav):
