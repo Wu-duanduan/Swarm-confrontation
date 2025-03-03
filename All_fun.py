@@ -199,22 +199,25 @@ class IIFDS:
         return all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei
 
     def Meanfield(self, uavPos, uavVel, all_opp, all_nei, all_nei_c2e):
+        uavPos_copy = np.copy(uavPos)
+        uavVel_copy = np.copy(uavVel)
         ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e = [], [], [], [], [], []
         for i in range(int(self.numberofuav)):
             num_opp.append(len(all_opp[i]))
             num_nei_c2e.append(len(all_nei_c2e[i]))
-            ave_nei_pos.append((sum(uavPos[index] for index in all_nei[i]) + uavPos[i]) / (len(all_nei[i]) + 1))
-            ave_nei_vel.append((sum(uavVel[index] for index in all_nei[i]) + uavVel[i]) / (len(all_nei[i]) + 1))
+            ave_nei_pos.append((sum(uavPos_copy[index] for index in all_nei[i]) + uavPos_copy[i]) / (len(all_nei[i]) + 1))
+            ave_nei_vel.append((sum(uavVel_copy[index] for index in all_nei[i]) + uavVel_copy[i]) / (len(all_nei[i]) + 1))
             if(len(all_opp[i]) == 0):
                 ave_opp_pos.append(float('-inf'))
                 ave_opp_vel.append(float('-inf'))
             else:
-                ave_opp_pos.append(sum(uavPos[index] for index in all_opp[i]) / len(all_opp[i]))
-                ave_opp_vel.append(sum(uavVel[index] for index in all_opp[i]) / len(all_opp[i]))
+                ave_opp_pos.append(sum(uavPos_copy[index] for index in all_opp[i]) / len(all_opp[i]))
+                ave_opp_vel.append(sum(uavVel_copy[index] for index in all_opp[i]) / len(all_opp[i]))
         return ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e
     
     def stateSelectionBlue(self, ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e, missle_index):
         task_index_blue = []
+
         for i in range(int(self.numberofuav / 2)):
             if missle_index[i] == 0:  # 只要弹药为空，就逃
                 task_index_blue.append(-2)  # 逃逸
@@ -235,14 +238,16 @@ class IIFDS:
     
     def stateSelectionRed(self, uavPos, uavVel, missle_index, all_opp, all_nei_c2e, all_close_opp):
         task_index_red = []
+        uavPos_copy = np.copy(uavPos)
+        uavVel_copy = np.copy(uavVel)
         for i in range(int(self.numberofuav / 2)):
             i = i + int(self.numberofuav / 2)
             if missle_index[i] == 0:  # 只要弹药为空，就逃
                 task_index_red.append(-2)  # 逃逸
             else:
                 if len(all_opp[i]) != 0: # 发现敌方
-                    if self.cos_cal(uavVel[i], uavPos[all_close_opp[i]] - uavPos[i]) >= self.cos_cal(
-                                uavVel[all_close_opp[i]], -uavPos[all_close_opp[i]] + uavPos[i]):
+                    if self.cos_cal(uavVel[i], uavPos_copy[all_close_opp[i]] - uavPos_copy[i]) >= self.cos_cal(
+                                uavVel[all_close_opp[i]], -uavPos_copy[all_close_opp[i]] + uavPos_copy[i]):
                         task_index_red.append(0)  # 追击
                     else:
                         task_index_red.append(-2)  # 逃逸
@@ -258,11 +263,13 @@ class IIFDS:
                obsCenter,  all_close_opp, all_close_nei, task_index, epi):
         ass_index = []
 
+        uavPos_copy = np.copy(uavPos)
+        goal_copy = np.copy(goal)
         for i in range(self.numberofuav):
             if task_index[i] == -3: # 搜索
                 if epi > self.end_predict and (
-                                ta_index[-1][i] != -3 or epi % 5 == 0 or self.distanceCost(goal[i],
-                                                                                           uavPos[
+                                ta_index[-1][i] != -3 or epi % 5 == 0 or self.distanceCost(goal_copy[i],
+                                                                                           uavPos_copy[
                                                                                                i]) < self.threshold2):
                     if i < self.numberofuav / 2:
                         finder = FindEnemyArea(pos_r, obsCenter, self.timeStep, self.obsR+self.uavR)
@@ -270,26 +277,26 @@ class IIFDS:
                         finder = FindEnemyArea(pos_b, obsCenter, self.timeStep, self.obsR+self.uavR)
                     temp = finder.predict_trajectory(10)
                     try:
-                        goal[i][0:2] = finder.find_nearest_center(temp, uavPos[i][0:2])
+                        goal_copy[i][0:2] = finder.find_nearest_center(temp, uavPos_copy[i][0:2])
                     except Exception as e:
                         # print('未找到覆盖点')
                         pass
                 ass_index.append(-2)
             elif task_index[i] == -2: # 逃逸
                 if (ta_index[-1][i] != -2) or (
-                    self.distanceCost(goal[i], uavPos[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点，重新计算逃逸目标点
+                    self.distanceCost(goal_copy[i], uavPos_copy[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点，重新计算逃逸目标点
                     if i < self.numberofuav / 2:
-                        finder = FindSafeSpot(pos_r, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
+                        finder = FindSafeSpot(pos_r, uavPos_copy[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
                     else:
-                        finder = FindSafeSpot(pos_b, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
+                        finder = FindSafeSpot(pos_b, uavPos_copy[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
                     temp = finder.predict_trajectory(10)
-                    goal[i][0:2] = finder.find_safe_spot(list(temp.values()))
+                goal_copy[i][0:2] = finder.find_safe_spot(list(temp.values()))
                 ass_index.append(-1)
             elif task_index[i] == -1: # 支援
-                goal[i] = uavPos[all_close_nei[i]]
+                goal_copy[i] = uavPos_copy[all_close_nei[i]]
                 ass_index.append(all_close_nei[i])
             else: # 追击
-                goal[i] = uavPos[all_close_opp[i]]
+                goal[i] = uavPos_copy[all_close_opp[i]]
                 ass_index.append(all_close_opp[i])
 
         return goal, ass_index
@@ -299,69 +306,73 @@ class IIFDS:
         ass_index = []
         task_index = []
 
+        uavPos_copy = np.copy(uavPos)
+        uavVel_copy = np.copy(uavVel)
+        goal_copy = np.copy(goal)
+
         for i in range(self.numberofuav):
             if missle_index[i] == 0:  # 只要弹药为空，就逃
                 if (ta_index[-1][i] != -2) or (
-                        self.distanceCost(goal[i], uavPos[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点，重新计算逃逸目标点
+                        self.distanceCost(goal_copy[i], uavPos_copy[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点，重新计算逃逸目标点
                     if i < self.numberofuav / 2:
-                        finder = FindSafeSpot(pos_r, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
+                        finder = FindSafeSpot(pos_r, uavPos_copy[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
                     else:
-                        finder = FindSafeSpot(pos_b, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
+                        finder = FindSafeSpot(pos_b, uavPos_copy[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
                     temp = finder.predict_trajectory(10)
-                    goal[i][0:2] = finder.find_safe_spot(list(temp.values()))
+                    goal_copy[i][0:2] = finder.find_safe_spot(list(temp.values()))
                 ass_index.append(-1)
                 task_index.append(-2)  # 逃逸
             else:
                 if len(all_opp[i]) != 0:
                     if i < self.numberofuav / 2:
-                        ave_opp_pos = sum(uavPos[index] for index in all_opp[i]) / len(all_opp[i])
-                        ave_opp_vel = sum(uavVel[index] for index in all_opp[i]) / len(all_opp[i])
-                        ave_nei_pos = (sum(uavPos[index] for index in all_nei[i]) + uavPos[i]) / (len(all_nei[i]) + 1)
-                        ave_nei_vel = (sum(uavVel[index] for index in all_nei[i]) + uavVel[i]) / (len(all_nei[i]) + 1)
+                        ave_opp_pos = sum(uavPos_copy[index] for index in all_opp[i]) / len(all_opp[i])
+                        ave_opp_vel = sum(uavVel_copy[index] for index in all_opp[i]) / len(all_opp[i])
+                        ave_nei_pos = (sum(uavPos_copy[index] for index in all_nei[i]) + uavPos_copy[i]) / (len(all_nei[i]) + 1)
+                        ave_nei_vel = (sum(uavVel_copy[index] for index in all_nei[i]) + uavVel_copy[i]) / (len(all_nei[i]) + 1)
                         if self.cos_cal(ave_nei_vel, ave_opp_pos - ave_nei_pos) >= self.cos_cal(ave_opp_vel,
                                                                                                 -ave_opp_pos + ave_nei_pos):
-                            goal[i] = uavPos[all_close_opp[i]]
+                            goal_copy[i] = uavPos_copy[all_close_opp[i]]
                             ass_index.append(all_close_opp[i])
                             task_index.append(0)  # 追击
                         else:
                             if (ta_index[-1][i] != -2) or (
-                                    self.distanceCost(goal[i], uavPos[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点
+                                    self.distanceCost(goal_copy[i], uavPos_copy[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点
                                 # ===========================
                                 # 无人机敌情侦察模块（王莉）
                                 # ===========================
-                                finder = FindSafeSpot(pos_r, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
+                                finder = FindSafeSpot(pos_r, uavPos_copy[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
                                 temp = finder.predict_trajectory(10)
                                 goal[i][0:2] = finder.find_safe_spot(list(temp.values()))
                                 # ===========================
                             ass_index.append(-1)
                             task_index.append(-2)  # 逃逸
                     else:
-                        if self.cos_cal(uavVel[i], uavPos[all_close_opp[i]] - uavPos[i]) >= self.cos_cal(
-                                uavVel[all_close_opp[i]], -uavPos[all_close_opp[i]] + uavPos[i]):
-                            goal[i] = uavPos[all_close_opp[i]]
+                        if self.cos_cal(uavVel_copy[i], uavPos_copy[all_close_opp[i]] - uavPos_copy[i]) >= self.cos_cal(
+                                uavVel_copy[all_close_opp[i]], -uavPos_copy[all_close_opp[i]] + uavPos_copy[i]):
+                            goal_copy[i] = uavPos[all_close_opp[i]]
                             ass_index.append(all_close_opp[i])
                             task_index.append(0)  # 追击
                         else:
                             if (ta_index[-1][i] != -2) or (
-                                    self.distanceCost(goal[i], uavPos[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点
+                                    self.distanceCost(goal_copy[i], uavPos_copy[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点
                                 # ===========================
                                 # 无人机敌情侦察模块（王莉）
                                 # ===========================
-                                finder = FindSafeSpot(pos_b, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
+                                finder = FindSafeSpot(pos_b, uavPos_copy[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
                                 temp = finder.predict_trajectory(10)
-                                goal[i][0:2] = finder.find_safe_spot(list(temp.values()))
+                                goal_copy[i][0:2] = finder.find_safe_spot(list(temp.values()))
                                 # ===========================
                             ass_index.append(-1)
                             task_index.append(-2)  # 逃逸
                 else:
                     if len(all_nei_c2e[i]) != 0:  # 存在逃跑或追击的友军
-                        goal[i] = uavPos[all_close_nei[i]]
+                        goal_copy[i] = uavPos_copy[all_close_nei[i]]
                         ass_index.append(all_close_nei[i])
                         task_index.append(-1)  # 支援
                     else:
                         if epi > self.end_predict and (
-                                ta_index[-1][i] != -3 or epi % 5 == 0 or self.distanceCost(goal[i],
-                                                                                           uavPos[
+                                ta_index[-1][i] != -3 or epi % 5 == 0 or self.distanceCost(goal_copy[i],
+                                                                                           uavPos_copy[
                                                                                                i]) < self.threshold2):
                             if i < self.numberofuav / 2:
                                 # ===========================
@@ -370,20 +381,20 @@ class IIFDS:
                                 finder = FindEnemyArea(pos_r, obsCenter, self.timeStep, self.obsR+self.uavR)
                                 temp = finder.predict_trajectory(10)
                                 try:
-                                    goal[i][0:2] = finder.find_nearest_center(temp, uavPos[i][0:2])
+                                    goal_copy[i][0:2] = finder.find_nearest_center(temp, uavPos_copy[i][0:2])
                                 except Exception as e:
                                     pass
                             else:
                                 finder = FindEnemyArea(pos_b, obsCenter, self.timeStep, self.obsR+self.uavR)
                                 temp = finder.predict_trajectory(10)
                                 try:
-                                    goal[i][0:2] = finder.find_nearest_center(temp, uavPos[i][0:2])
+                                    goal_copy[i][0:2] = finder.find_nearest_center(temp, uavPos_copy[i][0:2])
                                 except Exception as e:
                                     pass
                                 # ===========================
                         ass_index.append(-2)
                         task_index.append(-3)  # 搜索
-        return goal, ass_index, task_index
+        return goal_copy, ass_index, task_index
 
     def cos_cal(self, a, b):
         return a.dot(b) / (np.linalg.norm(a) * np.linalg.norm(b))
