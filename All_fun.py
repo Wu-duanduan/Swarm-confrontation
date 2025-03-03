@@ -296,10 +296,10 @@ class IIFDS:
                 goal_copy[i] = uavPos_copy[all_close_nei[i]]
                 ass_index.append(all_close_nei[i])
             else: # 追击
-                goal[i] = uavPos_copy[all_close_opp[i]]
+                goal_copy[i] = uavPos_copy[all_close_opp[i]]
                 ass_index.append(all_close_opp[i])
 
-        return goal, ass_index
+        return goal_copy, ass_index
 
     def assign(self, uavPos, uavVel, goal, missle_index, epi, pos_b, pos_r, ta_index,
                obsCenter, all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei):
