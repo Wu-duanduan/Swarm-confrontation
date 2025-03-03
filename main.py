@@ -195,8 +195,8 @@ if __name__ == "__main__":
 
         # goal为分配后的各无人车目标位置，ass_index为追击或支援无人车分配的目标序号
         goal, ass_index = iifds.allocation(q, goal, pos_b, pos_r, ta_index, obsCenter, all_close_opp, all_close_nei, task_index, i)
-        # ===========================
-
+        ===========================
+        
         ta_index = np.vstack((ta_index, task_index))
         dead_index = np.vstack((dead_index, flag_ugv))
         total_missle_index = np.vstack((total_missle_index, missle_index))
