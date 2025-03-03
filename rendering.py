@@ -82,18 +82,28 @@ class Viewer(object):
             scale=(scalex, scaley))
 
     def camera_follow(self, ego_pos, ego_yaw, FOV, detect_range):
-        ego_yaw = ego_yaw - np.pi / 2  # 小车朝向同y方向
+        # (ego_pos * R + T) * scale = (w/2, 0)
+        # 调整小车朝向为y轴方向（假设原始yaw为x轴方向）
+        ego_yaw = ego_yaw - np.pi / 2
+        
+        # 计算相机的水平和垂直视野范围
         x_range = detect_range * np.tan(FOV / 2) * 2
         y_range = detect_range
+        
+        # 计算缩放比例，将世界坐标映射到屏幕像素
         scale_x = self.width / x_range
         scale_y = self.height / y_range
+        
+        # 计算旋转角度
+        rotation = -ego_yaw
 
-        translation_x = -ego_pos[0] * scale_x
-        translation_y = -ego_pos[1] * scale_y + self.height / 2
-        rotation = -ego_yaw  # 负号是因为OpenGL的旋转方向与常规的坐标系相反
+        # 计算平移量，将小车位置调整到屏幕底部中心              
+        ego_pos_prime = np.array([ego_pos[0] * np.cos(rotation) - ego_pos[1] * np.sin(rotation),
+                                    ego_pos[0] * np.sin(rotation) + ego_pos[1] * np.cos(rotation)])
+        transform = np.array([self.width / 2, 0]) / np.array([scale_x, scale_y]) - ego_pos_prime
 
-        # 设置相机的变换
-        self.transform.set_translation(translation_x, translation_y)
+        # 设置变换参数
+        self.transform.set_translation(transform[0] * scale_x, transform[1] * scale_y)
         self.transform.set_rotation(rotation)
         self.transform.set_scale(scale_x, scale_y)
 

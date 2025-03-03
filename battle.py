@@ -102,7 +102,8 @@ class Battle(object):
                mode='rgb_array'):
         pos_copy = np.copy(pos)
         vel_copy = np.copy(vel)
-
+        pos_copy[0] = [0, 0, 0]
+        vel_copy[0] = [0, 0, 0]
         if self.viewer is None:
             self.viewer = rendering.Viewer(900, 480)
             pygame.init()
@@ -138,6 +139,7 @@ class Battle(object):
         results = []
         if flag == 0:
             self.viewer.set_bounds(-15, +15, -8, +8)
+            # self.viewer.transform.set_rotation(np.pi / 2)
         else:
             # 计算无人车的位置范围并限制在范围内
             min_x = pos_copy[flag - 1][0] - detect_range
@@ -177,6 +179,27 @@ class Battle(object):
         # 每次渲染时清除旧的几何对象
         self.render_geoms = []
         self.render_geoms_xform = []
+
+        # 创建一个带三角的正方形用于测试
+        # rect_pos = pos[flag - 1][:2]
+        # rect_rot = np.arctan(vel[flag - 1][1] / vel[flag - 1][0] + 1e-6)
+
+        # xform = rendering.Transform()
+        # xform.set_rotation(rect_rot)
+        # xform.set_translation(*rect_pos)
+        # rect = rendering.make_polygon([
+        #     (-0.2, -0.2),
+        #     (-0.2, 0.2),
+        #     (0.2, 0.2),
+        #     (0.4, 0),
+        #     (0.2, -0.2),
+        # ])
+        # rect.set_color(0, 1, 0)
+        # rect.add_attr(xform)
+        # self.render_geoms.append(rect)
+        # self.render_geoms_xform.append(xform)
+        # ego_pos = rect_pos
+        # ego_yaw = rect_rot
 
         ego_pos = pos[flag - 1][:2]
         ego_vel = vel[flag - 1][:2]

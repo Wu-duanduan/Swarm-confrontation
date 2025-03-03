@@ -197,10 +197,11 @@ if __name__ == "__main__":
         # 根据位置和速度绘图
         # ===========================
         # env.render(q, v, iifds.R_1, all_opp[observe_agent - 1], all_nei[observe_agent - 1], total_HP_index[-1],
-        #            iifds.HP_num, total_missle_index[-1] / 2, iifds.missle_num / 2, observe_agent,
+        #            iifds.HP_num, total_missle_index[-1] / 2, iifds.missle_num / 2, 0,
         #            task_index)  # 画出上一时刻的无人车的位置速度、血量、弹药，以及无人机的位置速度
         
-        FOV = 70
+        FOV = np.arctan(0.5) * 2
+        # FOV = 70
         env.render_BEV(q, v, iifds.R_1, FOV, observe_agent)
 
         if i % fig_interval == 0 and i != 0:  # 将态势保存为图片
