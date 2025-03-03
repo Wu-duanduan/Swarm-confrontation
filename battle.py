@@ -112,6 +112,7 @@ class Battle(object):
         self.render_geoms_xform = []
         # 初始化pygame用于文本渲染
 
+        self.CARs = []
         for i, CAR in enumerate(self.CARs):  # 添加无人车以及攻击范围
             if i == flag - 1:
                 CAR.color = np.array([0, 1, 0])
@@ -166,7 +167,8 @@ class Battle(object):
                 else:
                     self.render_geoms_xform[idx_ratio * i + idx].set_rotation(
                         np.arctan(vel_copy[i][1] / vel_copy[i][0]) + np.pi)
-
+        self.viewer.light_source = (0, 0)
+        self.viewer.draw_shadow()
         results.append(self.viewer.render(return_rgb_array=mode == 'rgb_array'))
         return results
     
@@ -219,6 +221,7 @@ class Battle(object):
 
         # 渲染静态障碍物
         self.render_static_obstacles(ego_pos, ego_yaw, BEV_mode=True)
+        self.viewer.draw_shadow(self.length_temp1)
         self.viewer.geoms = []
         for geom in self.render_geoms:
             self.viewer.add_geom(geom)
@@ -227,7 +230,9 @@ class Battle(object):
             self.viewer.set_bounds(-15, +15, -8, +8)
         else:
             self.viewer.camera_follow(ego_pos, ego_yaw, FOV, detect_range)
+            self.viewer.light_source = ego_pos
 
+        # 未来有机会优化一下吗？可读性有点太差了
         for i, CAR in enumerate(self.CARs):  # 无人车以及攻击范围需要旋转
             idx_ratio = self.length_temp1 // self.num_CARs
             for idx in range(idx_ratio):
@@ -242,7 +247,6 @@ class Battle(object):
                 else:
                     self.render_geoms_xform[idx_ratio * i + idx].set_rotation(
                         np.arctan(vel[i][1] / vel[i][0]) + np.pi)
-
         results.append(self.viewer.render(return_rgb_array=mode == 'rgb_array'))
         return results
 
@@ -331,16 +335,7 @@ class Battle(object):
             self.render_geoms_xform.append(xform)
 
             # 设置障碍物的位置
-            # if BEV_mode:
-            if False:
-                # 应用旋转变换
-                x, y = obs["pos"]
-                x_new = (x - ego_pos[0]) * np.cos(ego_yaw) - (y - ego_pos[1]) * np.sin(ego_yaw) + ego_pos[0]
-                y_new = (x - ego_pos[0]) * np.sin(ego_yaw) + (y - ego_pos[1]) * np.cos(ego_yaw) + ego_pos[1]
-                xform.set_translation(x_new, y_new)
-                xform.set_rotation(ego_yaw)
-            else:
-                xform.set_translation(*obs["pos"])
+            xform.set_translation(*obs["pos"])
 
     def close(self):
         pass

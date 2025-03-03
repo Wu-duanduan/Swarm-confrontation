@@ -470,7 +470,7 @@ class IIFDS:
                 uavNextPos = uavPos + ubar * self.stepSize
             else:
                 uavNextPos = uavPos + ubar * self.stepSize
-                # _, _, _, _, uavNextPos = self.kinematicConstrant(uavPos, qBefore, uavNextPos)
+                _, _, _, _, uavNextPos = self.kinematicConstrant(uavPos, qBefore, uavNextPos)
             uavNextPos[2] = uavPos[2]
 
             for j in range(len(obsq)):

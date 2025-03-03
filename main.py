@@ -20,6 +20,7 @@ import pyglet
 from pyglet import image
 from PIL import Image as PILImage, ImageDraw
 import time
+import os
 
 seed = 0
 np.random.seed(seed)
@@ -52,6 +53,9 @@ def get_args():
 
 
 if __name__ == "__main__":
+
+    os.makedirs('./fig_text', exist_ok=True)
+
     args = get_args()  # 使用 argparse 来解析命令行参数，配置Python画图的参数。
     env = Battle(args)  # Battle 类实例化环境，调用 env.reset() 重置环境状态。
     env.reset()
@@ -197,7 +201,7 @@ if __name__ == "__main__":
         # 根据位置和速度绘图
         # ===========================
         # env.render(q, v, iifds.R_1, all_opp[observe_agent - 1], all_nei[observe_agent - 1], total_HP_index[-1],
-        #            iifds.HP_num, total_missle_index[-1] / 2, iifds.missle_num / 2, 0,
+        #            iifds.HP_num, total_missle_index[-1] / 2, iifds.missle_num / 2, 2,
         #            task_index)  # 画出上一时刻的无人车的位置速度、血量、弹药，以及无人机的位置速度
         
         FOV = np.arctan(0.5) * 2
@@ -220,7 +224,6 @@ if __name__ == "__main__":
 
                 # 使用 Pillow 保存图像
                 img = PILImage.fromarray(img_data)
-
                 filename = f"./fig_text/frame-{i}-@sec.png"
                 img.save(filename)
                 # if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务

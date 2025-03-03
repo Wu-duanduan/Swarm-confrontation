@@ -31,6 +31,11 @@ import numpy as np
 
 RAD2DEG = 57.29577951308232
 
+def apply_transform(pos, transform):
+    x, y = pos
+    newx = x * transform.scale[0] * np.cos(transform.rotation) - y * transform.scale[1] * np.sin(transform.rotation) + transform.translation[0]
+    newy = x * transform.scale[0] * np.sin(transform.rotation) + y * transform.scale[1] * np.cos(transform.rotation) + transform.translation[1]
+    return (newx, newy)
 
 def get_display(spec):
     """Convert a display specification (such as :0) into an actual Display
@@ -58,6 +63,7 @@ class Viewer(object):
         self.geoms = []
         self.onetime_geoms = []
         self.transform = Transform()
+        self.light_source = (0, 0)
 
         glEnable(GL_BLEND)
         # glEnable(GL_MULTISAMPLE)
@@ -82,7 +88,11 @@ class Viewer(object):
             scale=(scalex, scaley))
 
     def camera_follow(self, ego_pos, ego_yaw, FOV, detect_range):
-        # (ego_pos * R + T) * scale = (w/2, 0)
+        # ego_pos * R * scale + T = (w/2, 0)
+        # 因为R先于Scale，所以当缩放比例不同时，坐标变换后会有形变
+        # 例如，当scale_x=1, scale_y=2时，正方形旋转拉伸会变成菱形
+        # 为了避免形变，需要保证缩放比例相同
+        # [x', y'].T = [x, y].T * R * S * R.inv + T 需要反解出角度和拉伸比例
         # 调整小车朝向为y轴方向（假设原始yaw为x轴方向）
         ego_yaw = ego_yaw - np.pi / 2
         
@@ -93,7 +103,7 @@ class Viewer(object):
         # 计算缩放比例，将世界坐标映射到屏幕像素
         scale_x = self.width / x_range
         scale_y = self.height / y_range
-        
+        assert scale_x == scale_y  
         # 计算旋转角度
         rotation = -ego_yaw
 
@@ -107,6 +117,45 @@ class Viewer(object):
         self.transform.set_rotation(rotation)
         self.transform.set_scale(scale_x, scale_y)
 
+    def draw_shadow(self, idx):
+        light_x, light_y = self.light_source
+
+        for geom in self.geoms[idx:]:
+            if isinstance(geom, FilledPolygon):  # 只对障碍物计算阴影
+                vertices = geom.v.copy()  # 获取多边形顶点
+                shadow_edges = []
+
+                for i in range(len(vertices)):
+                    vertices[i] = apply_transform(vertices[i], geom.attrs[1])
+
+
+                for v in vertices:
+                    angle = np.arctan2(v[1] - light_y, v[0] - light_x)
+                    shadow_edges.append((v, angle))
+
+                # 按角度排序，确保阴影多边形的顶点顺序正确
+                shadow_edges.sort(key=lambda x: x[1])
+                # 计算阴影投影点（将点沿着光源方向延展）
+                shadow_points = []
+                if len(shadow_edges) == 4:
+                    shadow_points.append(shadow_edges[0][0])  # 添加第一个点
+
+                    dist_from_light1 = np.sqrt((shadow_edges[0][0][0] - light_x) ** 2 + (shadow_edges[0][0][1] - light_y) ** 2)
+                    dist_from_light2 = np.sqrt((shadow_edges[-1][0][0] - light_x) ** 2 + (shadow_edges[-1][0][1] - light_y) ** 2)
+                    dist_far = max(dist_from_light1, dist_from_light2)
+                    # 计算中间的两个点
+                    for v, angle in shadow_edges[1:3]:
+                        dist = np.sqrt((v[0] - light_x) ** 2 + (v[1] - light_y) ** 2)
+                        if dist > dist_far:
+                            shadow_points.append(v)
+
+                    shadow_points.append(shadow_edges[-1][0])  # 添加最后一个点
+                    shadow_points.append((shadow_edges[-1][0][0] + np.cos(shadow_edges[-1][1]) * 1e6,
+                    shadow_edges[-1][0][1] + np.sin(shadow_edges[-1][1]) * 1e6))
+                    shadow_points.append((shadow_edges[0][0][0] + np.cos(shadow_edges[0][1]) * 1e6,
+                    shadow_edges[0][0][1] + np.sin(shadow_edges[0][1]) * 1e6))
+
+                    self.draw_polygon(shadow_points, filled=True, color=(0.5, 0.5, 0.5,1))
 
     def add_geom(self, geom):
         self.geoms.append(geom)
@@ -120,10 +169,11 @@ class Viewer(object):
         self.window.switch_to()
         self.window.dispatch_events()
         self.transform.enable()
-        for geom in self.geoms:
-            geom.render()
         for geom in self.onetime_geoms:
             geom.render()
+        for geom in self.geoms:
+            geom.render()
+
         self.transform.disable()
         arr = None
         if return_rgb_array:
