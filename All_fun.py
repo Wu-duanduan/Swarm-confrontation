@@ -15,8 +15,8 @@ class IIFDS:
 
     def __init__(self):
         """基本参数："""
-        self.V1 = 0.4  # 速度大小的最大值限制
-        self.V2 = 0.4
+        self.V1 = 0.8  # 速度大小的最大值限制
+        self.V2 = 0.8
         self.threshold = 1  # 最大打击距离阈值，在该打击距离下，无人车无法隔墙打击
         self.threshold2 = 0.4  # 搜索任务的到达距离阈值
         self.threshold3 = 0.4  # 逃跑任务的到达距离阈值

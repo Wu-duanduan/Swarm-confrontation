@@ -188,14 +188,18 @@ if __name__ == "__main__":
         # 输入为局部BEV图像
         # 根据感知信息进行任务分配，task_index为任务信息（宏动作）。
         
-        ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e = iifds.Meanfield(q, v, all_opp, all_nei, all_nei_c2e)
-        task_index_blue = iifds.stateSelectionBlue(ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e, missle_index)
-        task_index_red = iifds.stateSelectionRed(q, v, missle_index, all_opp, all_nei_c2e, all_close_opp)
-        task_index = task_index_blue + task_index_red
+        # ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e = iifds.Meanfield(q, v, all_opp, all_nei, all_nei_c2e)
+        # task_index_blue = iifds.stateSelectionBlue(ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e, missle_index)
+        # task_index_red = iifds.stateSelectionRed(q, v, missle_index, all_opp, all_nei_c2e, all_close_opp)
+        # task_index = task_index_blue + task_index_red
 
-        # goal为分配后的各无人车目标位置，ass_index为追击或支援无人车分配的目标序号
-        goal, ass_index = iifds.allocation(q, goal, pos_b, pos_r, ta_index, obsCenter, all_close_opp, all_close_nei, task_index, i)
-        ===========================
+        # # goal为分配后的各无人车目标位置，ass_index为追击或支援无人车分配的目标序号
+        # goal, ass_index = iifds.allocation(q, goal, pos_b, pos_r, ta_index, obsCenter, all_close_opp, all_close_nei, task_index, i)
+
+        goal, ass_index, task_index = iifds.assign(q, v, goal, missle_index, i,
+                                                   pos_b, pos_r, ta_index, obsCenter, all_opp, all_nei, all_nei_c2e,
+                                                   all_close_opp, all_close_nei)
+        # ===========================
         
         ta_index = np.vstack((ta_index, task_index))
         dead_index = np.vstack((dead_index, flag_ugv))
