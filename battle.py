@@ -201,8 +201,8 @@ class Battle(object):
         # print(f'ego_yaw: {ego_yaw / np.pi * 180}')
 
         for i, CAR in enumerate(self.CARs):  # 添加无人车
-            if i == flag - 1:
-                CAR.color = np.array([0, 1, 0])
+            # if i == flag - 1:
+            #     CAR.color = np.array([0, 1, 0])
             xform = rendering.Transform()
             xform.set_translation(*pos[i][0:2])
             yaw = self.vel2yaw(vel[i][:2])
@@ -217,6 +217,8 @@ class Battle(object):
         
         # 渲染静态障碍物
         self.render_static_obstacles(ego_pos, ego_yaw, BEV_mode=True)
+        if flag is not 0:
+            self.viewer.light_source = ego_pos
         self.viewer.draw_shadow(self.length_temp1)
 
         self.viewer.geoms = []
@@ -227,7 +229,6 @@ class Battle(object):
             self.viewer.set_bounds(-15, +15, -8, +8)
         else:
             self.viewer.camera_follow(ego_pos, ego_yaw, FOV, detect_range)
-            self.viewer.light_source = ego_pos
         
         results.append(self.viewer.render(return_rgb_array=mode == 'rgb_array'))
 

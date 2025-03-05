@@ -206,7 +206,9 @@ if __name__ == "__main__":
         
         FOV = np.arctan(0.5) * 2
         # FOV = 70
-        env.render_BEV(q, v, iifds.R_1, FOV, observe_agent)
+        for observe_agent in range(1, 11):
+            env.render_BEV(q, v, iifds.R_1, FOV, observe_agent)
+            print(env.viewer.light_source)
 
 
         if i % fig_interval == 0 and i != 0:  # 将态势保存为图片
