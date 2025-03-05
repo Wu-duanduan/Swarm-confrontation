@@ -131,18 +131,19 @@ if __name__ == "__main__":
         cars_force=random_params["cars_force"],  # 小车动力, 1维向量
         cars_power=random_params["cars_power"],  # 小车功率, 1维向量
         cars_friction_coefficient=random_params["cars_friction_coefficient"],  # 小车的摩擦系数, 1维向量
-        cars_size = [[iifds.uavR, iifds.uavR]] * iifds.numberofuav,  # 小车的长宽, 2维向量
+        cars_size = [[iifds.uavR * 7 / 5, iifds.uavR * 2]] * iifds.numberofuav,  # 小车的长宽, 2维向量
         cars_wheel_spacing=[1] * iifds.numberofuav,  # 小车的轮间距, 1维向量
         cars_wheel_radius=[2] * iifds.numberofuav,  # 小车的轮半径, 1维向量
         obstacles_center=obsCenter[:, :2],  # 障碍物的中心点, 2维向量
         obstacles_radius=0.1,  # 障碍物的半径, 1维向量
         timestep=iifds.timeStep,  # 时间步长
-        collision_coefficient=random_params["collision_coefficient"],  # 碰撞系数
+        # collision_coefficient=random_params["collision_coefficient"],  # 碰撞系数
+        collision_coefficient = 0.1
     )
 
     from perception_random import PerceptionPosition
     perception_q = PerceptionPosition(
-        random_range=random_params["cars_position_noise"],  # 无人机位置噪声, 1维向量
+        random_range=random_params["cars_position_noise"],  # 无人车位置噪声, 1维向量
     )
     perception_q.updata_actrual_q(q)
     # ===========================

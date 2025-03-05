@@ -20,10 +20,6 @@ class PerceptionPosition:
         :param q: 实际的位置, shape = (n, 3)
         '''
         self.q = q if type(q) == np.ndarray else np.array(q)
-        # for observer in range(self.random_range.shape[0]):
-        #     random_x = np.random.uniform(-self.random_range[observer][0], self.random_range[observer][0], self.q.shape[0])
-        #     random_y = np.random.uniform(-self.random_range[observer][1], self.random_range[observer][1], self.q.shape[0])
-        #     self.random_num[observer] = np.array([random_x, random_y]).T
         
         # 向量化生成随机数
         self.random_num = np.random.uniform(

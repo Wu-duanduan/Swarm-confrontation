@@ -2,7 +2,9 @@ import numpy as np
 import random
 from copy import deepcopy
 
-from physical_law_tool import calculate_obstacles_corner, test_case_render, collision_response
+from physical_law_tool import calculate_obstacles_corner, test_case_render, collision_response, resolve_overlaps
+
+from physical_law_tool import calculate_deceleration_motion, calculate_acceleration_motion_vector, calculate_circular_motion_vector
 
 class PhysicalLaw:
     # 不变的常量
@@ -47,19 +49,29 @@ class PhysicalLaw:
         '''
         从位置q, 速度v, 下一时刻的目标速度vNext, 以及小车自身属性和障碍物设置, 计算下一时刻的位置qNext
         todo: 用numpy加速
+        未考虑因素：
+        1. 车的转动惯性
+        2. 车的电机扭矩
         q: 位置, z轴数据固定, shape=(n, 3)
         v: 速度, shape=(n, 2)
         vNext: 下一时刻的目标速度, shape=(n, 2)
         return: 下一时刻的位置qNext, shape=(n, 3)
         return: 下一时刻的速度vNext, shape=(n, 2)
         '''
-        q = np.array(deepcopy(q))
-        v = np.array(deepcopy(v))
+        q = np.array(deepcopy(q), dtype=np.float64)
+        v = np.array(deepcopy(v), dtype=np.float64)
         vNext = np.array(vNext)
+        v_size = np.linalg.norm(v, axis=1)
+        mask = v_size < 1e-10
+        v[mask] = vNext[mask] * 1e-10
         qActual, vActual = self.get_qvNext_micro(q, v[:, :2], vNext[:, :2])
-        # 如果aAcural的模长为0，则将v乘1e-10赋值给vActual
+        # # 如果aAcural的模长为0，则将v乘1e-10赋值给vActual
+        # v[:, :2] = vActual
+        # return qActual, v
+        qActual, vActual = self.get_qvNext_formula(q, v[:, :2], vNext[:, :2])
+        q[:, :2] = qActual
         v[:, :2] = vActual
-        return qActual, v
+        return q, v
 
     def get_qvNext_micro(self, q, v, vNext) -> list | list:
         '''
@@ -89,11 +101,61 @@ class PhysicalLaw:
             # 利用加速度计算小车位置和速度
             q_2d += v_current * micro_timestep + 0.5 * a * micro_timestep_squared
             v_current += a * micro_timestep
-        # 碰撞检测
-        q_2d, v_current = self.check_collisions(q_2d, v_current)
+
+            # 碰撞检测
+            q_2d, v_current = self.check_collisions(q_2d, v_current)
 
         q[:, :2] = q_2d
         return q, v_current
+
+    def get_qvNext_formula(self, q, v, vNext) -> list | list:
+        '''
+        从位置q, 速度v, 下一时刻的目标速度vNext, 以及小车自身属性和障碍物设置, 使用公式法计算下一时刻的位置qNext
+        q: 位置, z轴数据固定, shape=(n, 3)
+        v: 速度, shape=(n, 2)
+        vNext: 下一时刻的目标速度, shape=(n, 2)
+        return: 下一时刻的位置qNext, shape=(n, 3)
+        return: 下一时刻的速度vNext, shape=(n, 2)
+        '''
+        t_last = np.ones(self.cars_mass.shape) * self.timestep
+        q_2d = q[:, :2].copy()
+        v_2d = v.copy()
+
+        trajectory_record = []
+
+        # 判断需要加速还是减速
+        accelerate_condition = np.linalg.norm(vNext, axis=1) > np.linalg.norm(v, axis=1)
+        # 如果需要加速则分配全部时间给转向
+        t_turn = t_last * accelerate_condition
+        # 计算能提供的转向加速度
+        a = self.cars_friction_force_max / self.cars_mass
+        # 转向
+        v_2d, q_2d, t = calculate_circular_motion_vector(q_2d, v_2d, vNext, a, t_turn)
+        t_last -= t
+        # 加速
+        v_2d, q_2d, t = calculate_acceleration_motion_vector(self.cars_mass, q_2d, v_2d, vNext, self.cars_power, self.cars_friction_force_max, self.cars_friction_force_rolling, t_last)
+        t_last -= t
+
+        # 判断是否需要减速
+        decelerate_condition = np.linalg.norm(vNext, axis=1) < np.linalg.norm(v, axis=1)
+        # 如果需要减速则分配全部时间给减速
+        t_turn = t_last * decelerate_condition
+        # 减速
+        v_2d, q_2d, t = calculate_deceleration_motion(self.cars_mass, q_2d, v_2d, vNext, self.cars_friction_force_max, self.cars_friction_force_rolling, t_turn)
+        t_last -= t
+
+        # 全体转向
+        v_2d, q_2d, t = calculate_circular_motion_vector(q_2d, v_2d, vNext, a, t_last)
+        t_last -= t
+        # 剩余时间匀速运动
+        q_2d += v_2d * t_last[:, np.newaxis]
+
+        # 碰撞检测
+        q_2d, v_2d = self.check_collisions(q_2d, v_2d)
+
+        return q_2d, v_2d
+        
+
 
     def get_cars_corners(self, centers, velocities):
         """
@@ -158,12 +220,14 @@ class PhysicalLaw:
         new_car_centers = car_centers.copy()
         new_car_velocities = car_velocities.copy()
 
+        collision_happened = False
+
         # 检查小车与障碍物是否碰撞
         cars_corners = self.get_cars_corners(car_centers, car_velocities)
         for i in range(m):
             car_corners = cars_corners[i]
             for j in range(n):
-                new_c1, _, new_v1, _ = collision_response(car_corners, obstacles[j], 
+                new_c1, _, new_v1, _, collision = collision_response(car_corners, obstacles[j], 
                                                           new_car_velocities[i], np.zeros_like(new_car_velocities[i]),
                                                           self.cars_mass[i], np.inf,
                                                           self.collision_coefficient, collision_time)
@@ -171,13 +235,17 @@ class PhysicalLaw:
                 # new_car_centers[i].shape = (2,)
                 new_car_centers[i] = np.average(new_c1, axis=0)
                 new_car_velocities[i] = new_v1
+                if collision:
+                    cars_corners = self.get_cars_corners(new_car_centers, new_car_velocities)
+                    car_corners = cars_corners[i]
+                    collision_happened = True
 
         # 检查小车与小车之间是否碰撞
         for i in range(m):
             car1_corners = cars_corners[i]
             for j in range(i + 1, m):
                 car2_corners = cars_corners[j]
-                new_c1, new_c2, new_v1, new_v2 = collision_response(car1_corners, car2_corners,
+                new_c1, new_c2, new_v1, new_v2, collision = collision_response(car1_corners, car2_corners,
                                                                   new_car_velocities[i], new_car_velocities[j],
                                                                   self.cars_mass[i], self.cars_mass[j],
                                                                   self.collision_coefficient, collision_time)
@@ -185,8 +253,16 @@ class PhysicalLaw:
                 new_car_centers[j] = np.average(new_c2, axis=0)
                 new_car_velocities[i] = new_v1
                 new_car_velocities[j] = new_v2
-
-        return new_car_centers, new_car_velocities        
+                if collision:
+                    cars_corners = self.get_cars_corners(new_car_centers, new_car_velocities)
+                    car1_corners = cars_corners[i]
+                    collision_happened = True
+        
+        # 处理重叠的情况
+        if collision_happened:
+            cars_corners = resolve_overlaps(cars_corners, self.obstacles_corner)
+            new_car_centers = np.average(cars_corners, axis=1)
+        return new_car_centers, new_car_velocities
 
     def calculate_trajectory_2d(self, q: np.array, v: np.array, a: np.array, m: int) -> tuple[np.array, np.array]:
         '''
@@ -385,10 +461,10 @@ def multi_cars_with_obstacles():
         obstacles_center=[[0.5, 10]],  # 障碍物的中心点, 2维向量
         obstacles_radius=0.1,  # 障碍物的半径, 1维向量
         timestep=0.1,  # 时间步长
-        collision_coefficient=0.001,  # 碰撞系数
+        collision_coefficient=0.1,  # 碰撞系数
     )
 
-    total_time = 5  # 总时间
+    total_time = 1.8  # 总时间
     total_step = int(total_time / physical_law.timestep)  # 总步数
     q = [[0., 0., 0.], [1., 0., 0.], [-5., 0., 0.]]  # 初始位置
     v = [[1e-10, 0.], [-1e-10, 0.], [1e-10, 0.]]  # 初始速度
@@ -412,24 +488,83 @@ def multi_cars_with_obstacles():
                      obstacles_corner=physical_law.obstacles_corner, 
                      test_case_name="One Car Without Obstacles")
 
+def collision_test():
+    '''
+    碰撞测试
+    '''
+    # 初始数据
+    q1 = [-1, 0, 0]
+    q2 = [0, 1, 0]
+    v1 = [5, 0, 0]
+    v2 = [0, -5, 0]
+    m1 = 100
+    m2 = 100
+    collision_coefficient = 0.8
+    friction_coefficient = 0.1
+    totaltime = 2
+    timestep=0.1
+    timebins = 20
+
+    from physical_law_tool import test_collision_response, quaternion_to_direction
+    result_expect = test_collision_response(
+        q1=q1,
+        q2=q2,
+        v1=v1,
+        v2=v2,
+        m1=m1,
+        m2=m2,
+        collision_coefficient=collision_coefficient,
+        friction_coefficient=friction_coefficient,
+        totaltime=totaltime,
+        timestep=timestep/10,
+        test_model="DIRECT"
+        # videoLog=True,
+    )
+    n = 2
+    physical_law = PhysicalLaw(
+        cars_mass=[m1, m2],  # 小车质量, 1维向量
+        cars_force=[200, 200],  # 小车动力, 1维向量
+        cars_power=[100, 100],  # 小车功率, 1维向量
+        cars_friction_coefficient=[friction_coefficient] * n,  # 小车的摩擦系数, 1维向量
+        cars_size = [[0.5, 0.5]] * n,  # 小车的长宽, 2维向量
+        cars_wheel_spacing=[1] * n,  # 小车的轮间距, 1维向量
+        cars_wheel_radius=[1] * n,  # 小车的轮半径, 1维向量
+        obstacles_center=[],  # 障碍物的中心点, 2维向量
+        obstacles_radius=0.1,  # 障碍物的半径, 1维向量
+        timestep=timestep,  # 时间步长
+        collision_coefficient=collision_coefficient,  # 碰撞系数
+    )
+
+    vNext1 = [5, 0, 0]
+    vNext2 = [0, -5, 0]
+    def round_tuple(t):
+        if isinstance(t, (tuple, list)):
+            return tuple(round(x, 2) if isinstance(x, (int, float)) else x for x in t)
+        return t
+    for i in range(timebins):
+        q1_expect, o1_expect, v1_expect, q2_expect, o2_expect, v2_expect = result_expect[i*10]
+        print(f"q1_expect: {round_tuple(q1_expect)}, \nv1_expect: {round_tuple(v1_expect)}, \nq2_expect: {round_tuple(q2_expect)}, \nv2_expect: {round_tuple(v2_expect)}")
+        (q1_actual, q2_actual), (v1_actual, v2_actual) = physical_law.get_qvNext(
+            q=[q1, q2],
+            v=[v1, v2],
+            vNext=[vNext1, vNext2],
+        )
+        print(f"q1_actual: {q1_actual.round(2)}, \nv1_actual: {v1_actual.round(2)}, \nq2_actual: {q2_actual.round(2)}, \nv2_actual: {v2_actual.round(2)}")
+        q1 = q1_actual
+        v1 = v1_actual
+        q2 = q2_actual
+        v2 = v2_actual
+        print("-" * 100)
+
+
+    # for q1, o1, v1, q2, o2, v2 in result:
+    #     print(f"o1: {quaternion_to_direction(o1)[:2]}, \nv1: {v1[:2]}, \no2: {quaternion_to_direction(o2)[:2]}, \nv2: {v2[:2]}")
+    
 
 if __name__ == '__main__':
     random.seed(1)
     # one_car_no_obstacles()
     # one_car_with_obstacles()
     # multi_cars_no_obstacles()
-    multi_cars_with_obstacles()
-    from physical_law_tool import test_collision_response, quaternion_to_direction
-    result = test_collision_response(
-        q1=[-1, 0, 0],
-        q2=[0, 1, 0],
-        v1=[5, 0, 0],
-        v2=[0, -5, 0],
-        m1=10,
-        m2=10,
-        collision_coefficient=1,
-        friction_coefficient=10
-    )
-
-    for q1, o1, v1, q2, o2, v2 in result:
-        print(f"o1: {quaternion_to_direction(o1)[:2]}, \nv1: {v1[:2]}, \no2: {quaternion_to_direction(o2)[:2]}, \nv2: {v2[:2]}")
+    # multi_cars_with_obstacles()
+    collision_test()
