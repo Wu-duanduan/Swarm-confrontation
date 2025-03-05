@@ -117,7 +117,7 @@ class Viewer(object):
         self.transform.set_rotation(rotation)
         self.transform.set_scale(scale_x, scale_y)
 
-    def draw_shadow(self, idx):
+    def draw_shadow(self, idx=0):
         light_x, light_y = self.light_source
 
         for geom in self.geoms[idx:]:
@@ -155,7 +155,7 @@ class Viewer(object):
                     shadow_points.append((shadow_edges[0][0][0] + np.cos(shadow_edges[0][1]) * 1e6,
                     shadow_edges[0][0][1] + np.sin(shadow_edges[0][1]) * 1e6))
 
-                    self.draw_polygon(shadow_points, filled=True, color=(0.5, 0.5, 0.5,1))
+                    self.draw_polygon(shadow_points, filled=True, color=(0.5, 0.5, 0.5, 0.5))
 
     def add_geom(self, geom):
         self.geoms.append(geom)

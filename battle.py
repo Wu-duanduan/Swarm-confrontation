@@ -3,6 +3,8 @@ from math import cos, sin, tan, pi, atan2, acos
 from random import random, uniform, randint
 from gym import spaces
 import pygame
+import pyglet
+from pyglet import image
 import rendering
 
 
@@ -53,13 +55,13 @@ class Battle(object):
             CAR.id = i
             if i < args.num_BCARs:
                 CAR.enemy = False
-                CAR.color = np.array([0, 0, 1])
+                CAR.color = np.array([0, i / self.num_BCARs, 1])
                 CAR.attack_range = args.attack_range_B
                 CAR.attack_angle = args.attack_angle_BR
                 self.BCARs.append(CAR)
             elif i < args.num_RCARs + args.num_BCARs:
                 CAR.enemy = True
-                CAR.color = np.array([1, 0, 0])
+                CAR.color = np.array([1, (i - self.num_BCARs) / self.num_RCARs, 0])
                 CAR.attack_range = args.attack_range_R
                 CAR.attack_angle = args.attack_angle_BR
                 self.RCARs.append(CAR)
@@ -173,35 +175,15 @@ class Battle(object):
         return results
     
     def render_BEV(self, pos, vel, detect_range, FOV, flag, mode='rgb_array'):
+        viewer_size = 500
         if FOV > np.pi:
             FOV = FOV / 180 * np.pi
         if self.viewer is None:
-            self.viewer = rendering.Viewer(500, 500)
+            self.viewer = rendering.Viewer(viewer_size, viewer_size)
             pygame.init()
         # 每次渲染时清除旧的几何对象
         self.render_geoms = []
         self.render_geoms_xform = []
-
-        # 创建一个带三角的正方形用于测试
-        # rect_pos = pos[flag - 1][:2]
-        # rect_rot = np.arctan(vel[flag - 1][1] / vel[flag - 1][0] + 1e-6)
-
-        # xform = rendering.Transform()
-        # xform.set_rotation(rect_rot)
-        # xform.set_translation(*rect_pos)
-        # rect = rendering.make_polygon([
-        #     (-0.2, -0.2),
-        #     (-0.2, 0.2),
-        #     (0.2, 0.2),
-        #     (0.4, 0),
-        #     (0.2, -0.2),
-        # ])
-        # rect.set_color(0, 1, 0)
-        # rect.add_attr(xform)
-        # self.render_geoms.append(rect)
-        # self.render_geoms_xform.append(xform)
-        # ego_pos = rect_pos
-        # ego_yaw = rect_rot
 
         ego_pos = pos[flag - 1][:2]
         ego_vel = vel[flag - 1][:2]
@@ -211,17 +193,25 @@ class Battle(object):
             if i == flag - 1:
                 CAR.color = np.array([0, 1, 0])
             xform = rendering.Transform()
+            xform.set_translation(*pos[i][0:2])
+            if vel[i][1] >= 0 and vel[i][0] >= 0:
+                xform.set_rotation(np.arctan(vel[i][1] / vel[i][0]))
+            elif vel[i][1] < 0 and vel[i][0] >= 0:
+                xform.set_rotation(np.arctan(vel[i][1] / vel[i][0]))
+            else:
+                xform.set_rotation(np.arctan(vel[i][1] / vel[i][0]) + np.pi)
             for x in rendering.make_CAR(CAR.size):
-                x.set_color(*CAR.color)
+                x.set_color(*CAR.color, 0.5)
                 x.add_attr(xform)
                 self.render_geoms.append(x)
                 self.render_geoms_xform.append(xform)
 
         self.length_temp1 = len(self.render_geoms)
-
+        
         # 渲染静态障碍物
         self.render_static_obstacles(ego_pos, ego_yaw, BEV_mode=True)
         self.viewer.draw_shadow(self.length_temp1)
+
         self.viewer.geoms = []
         for geom in self.render_geoms:
             self.viewer.add_geom(geom)
@@ -231,23 +221,33 @@ class Battle(object):
         else:
             self.viewer.camera_follow(ego_pos, ego_yaw, FOV, detect_range)
             self.viewer.light_source = ego_pos
-
-        # 未来有机会优化一下吗？可读性有点太差了
-        for i, CAR in enumerate(self.CARs):  # 无人车以及攻击范围需要旋转
-            idx_ratio = self.length_temp1 // self.num_CARs
-            for idx in range(idx_ratio):
-                self.render_geoms_xform[idx_ratio * i + idx].set_translation(*pos[i][0:2])
-
-                if vel[i][1] >= 0 and vel[i][0] >= 0:
-                    self.render_geoms_xform[idx_ratio * i + idx].set_rotation(
-                        np.arctan(vel[i][1] / vel[i][0]))
-                elif vel[i][1] < 0 and vel[i][0] >= 0:
-                    self.render_geoms_xform[idx_ratio * i + idx].set_rotation(
-                        np.arctan(vel[i][1] / vel[i][0]))
-                else:
-                    self.render_geoms_xform[idx_ratio * i + idx].set_rotation(
-                        np.arctan(vel[i][1] / vel[i][0]) + np.pi)
+        
         results.append(self.viewer.render(return_rgb_array=mode == 'rgb_array'))
+
+        color_buffer = pyglet.image.get_buffer_manager().get_color_buffer()
+        # 获取图像的原始像素数据
+        image_data = color_buffer.get_image_data()
+        # 将数据转换为 NumPy 数组（需要转换为 RGB 格式）
+        img_data = np.frombuffer(image_data.get_data('RGB', image_data.width * 3), dtype=np.uint8)
+        img_data = img_data.reshape((image_data.height, image_data.width, 3))
+
+        # 翻转图像的垂直方向
+        img_data = np.flipud(img_data)  # 或者 img_data = img_data[::-1]
+        # 判断是否存在特定颜色
+        present_ids = []
+        for car in self.CARs:
+            tolerance = 5
+            # 转换颜色到0-255的整数范围
+            color_rgb = (car.color * 0.5 * 255 + np.array([1, 1, 1]) * 0.5 * 255).round().astype(np.int32)
+            lower = np.maximum(color_rgb - tolerance, 0)
+            upper = np.minimum(color_rgb + tolerance, 255)
+            lower = lower.astype(np.uint8)
+            upper = upper.astype(np.uint8)
+            # 创建颜色掩膜
+            mask = np.all((img_data >= lower) & (img_data <= upper), axis=-1)
+            if np.any(mask):
+                present_ids.append(car.id)
+        print(present_ids)
         return results
 
     def render_static_obstacles(self, ego_pos=(0, 0), ego_yaw=0, BEV_mode=False):

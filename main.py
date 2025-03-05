@@ -208,6 +208,7 @@ if __name__ == "__main__":
         # FOV = 70
         env.render_BEV(q, v, iifds.R_1, FOV, observe_agent)
 
+
         if i % fig_interval == 0 and i != 0:  # 将态势保存为图片
             try:
                 color_buffer = pyglet.image.get_buffer_manager().get_color_buffer()
