@@ -174,6 +174,14 @@ class Battle(object):
         results.append(self.viewer.render(return_rgb_array=mode == 'rgb_array'))
         return results
     
+    def vel2yaw(self, vel):
+        if vel[1] >= 0 and vel[0] >= 0:
+            return np.arctan(vel[1] / vel[0])
+        elif vel[1] < 0 and vel[0] >= 0:
+            return np.arctan(vel[1] / vel[0])
+        else:
+            return np.arctan(vel[1] / vel[0]) + np.pi
+
     def render_BEV(self, pos, vel, detect_range, FOV, flag, mode='rgb_array'):
         viewer_size = 500
         if FOV > np.pi:
@@ -187,19 +195,18 @@ class Battle(object):
 
         ego_pos = pos[flag - 1][:2]
         ego_vel = vel[flag - 1][:2]
-        ego_yaw = np.arctan(ego_vel[1] / ego_vel[0])
+        # print(f'ego_vel: {ego_vel}')
+        
+        ego_yaw = self.vel2yaw(ego_vel)
+        # print(f'ego_yaw: {ego_yaw / np.pi * 180}')
 
-        for i, CAR in enumerate(self.CARs):  # 添加无人车以及攻击范围
+        for i, CAR in enumerate(self.CARs):  # 添加无人车
             if i == flag - 1:
                 CAR.color = np.array([0, 1, 0])
             xform = rendering.Transform()
             xform.set_translation(*pos[i][0:2])
-            if vel[i][1] >= 0 and vel[i][0] >= 0:
-                xform.set_rotation(np.arctan(vel[i][1] / vel[i][0]))
-            elif vel[i][1] < 0 and vel[i][0] >= 0:
-                xform.set_rotation(np.arctan(vel[i][1] / vel[i][0]))
-            else:
-                xform.set_rotation(np.arctan(vel[i][1] / vel[i][0]) + np.pi)
+            yaw = self.vel2yaw(vel[i][:2])
+            xform.set_rotation(yaw)
             for x in rendering.make_CAR(CAR.size):
                 x.set_color(*CAR.color, 0.5)
                 x.add_attr(xform)
