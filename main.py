@@ -115,11 +115,11 @@ if __name__ == "__main__":
     # 收敛速度的上界为O((SA)^M)，其中M为随机参数的数量
     random_params = {
         # 动力学约束随机参数
-        "cars_mass" : np.random.uniform(98, 102, iifds.numberofuav),
-        "cars_force" : np.random.uniform(196, 200, iifds.numberofuav),
-        "cars_power" : np.random.uniform(96, 100, iifds.numberofuav),
-        "cars_friction_coefficient" : np.random.uniform(0.08, 0.12, iifds.numberofuav),
-        "collision_coefficient" : random.random() / 2 + 0.5,
+        "cars_mass" : np.random.uniform(2, 3, iifds.numberofuav),
+        "cars_force" : np.random.uniform(15, 20, iifds.numberofuav),
+        "cars_power" : np.random.uniform(40, 50, iifds.numberofuav),
+        "cars_friction_coefficient" : np.random.uniform(0.28, 0.32, iifds.numberofuav),
+        "collision_coefficient" : random.random() / 10 + 0.9,
         # 感知随机参数
         "cars_position_noise" : np.random.uniform(0.01, 0.03, iifds.numberofuav),
     }
@@ -137,8 +137,7 @@ if __name__ == "__main__":
         obstacles_center=obsCenter[:, :2],  # 障碍物的中心点, 2维向量
         obstacles_radius=0.1,  # 障碍物的半径, 1维向量
         timestep=iifds.timeStep,  # 时间步长
-        # collision_coefficient=random_params["collision_coefficient"],  # 碰撞系数
-        collision_coefficient = 0.1
+        collision_coefficient=random_params["collision_coefficient"], # 碰撞后速度的衰减系数
     )
 
     from perception_random import PerceptionPosition
@@ -218,7 +217,7 @@ if __name__ == "__main__":
         # 计算伤亡情况
         for j in range(iifds.numberofuav):
             if flag_uav[j] == 1:
-                qNext[j] = q[j]
+                # qNext[j] = q[j]
                 vNext[j] = np.array([0, 0, 0])
             else:
                 if task_index[j] == 0:  # 如果是追击
@@ -241,6 +240,9 @@ if __name__ == "__main__":
                     flag_fill[j] = 0
                     fill_index[j] = 0
                     missle_index[j] = iifds.missle_num
+            if flag_uav[j] == 1:
+                # qNext[j] = q[j]
+                vNext[j] = np.array([0, 0, 0])
 
         rew_n1 = getReward1(qNext, obsCenterNext, obs_num, goal, iifds, start)  # 每个agent使用相同的路径reward
         rew_n2 = getReward2(qNext, obsCenterNext, obs_num, goal, iifds, start)

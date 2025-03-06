@@ -73,11 +73,19 @@ def calculate_all_rectangles(centers, side_length=0.1):
         rectangles.append(corners)
     return rectangles
 
+def calculate_rectangle_size(rectangle):
+    """根据长方形的四个角标计算长方形的大小"""
+    x_coords = [corner[0] for corner in rectangle]
+    y_coords = [corner[1] for corner in rectangle]
+    width = max(x_coords) - min(x_coords)
+    height = max(y_coords) - min(y_coords)
+    return width, height
+
 #################################################################################
 # 测试时对小车和障碍物进行渲染
 #################################################################################
 def test_case_render(qTotal, vTotal, timestep, cars_size,
-                      screen_size=[800, 600], world_size=[20, 20], obstacles_corner=[],
+                      screen_size=[800, 800], world_size=[20, 20], obstacles_corner=[],
                       test_case_name='"Car Movement Test"'):
     '''
     测试用例渲染
@@ -193,92 +201,187 @@ def test_case_render(qTotal, vTotal, timestep, cars_size,
 #########################################################################
 # 检测两个物体相撞后的位置和速度
 #########################################################################
-def collision_response(c1, c2, v1, v2, m1, m2, collision_coefficient=0.8, timestep=0.01):
+def collision_response(c, v, m, size, obstacles, collision_coefficient=0.8, timestep=0.01):
     '''
-    检测两个物体相撞后的位置和速度，物体均是轴对称的（长方形）
-    c1: 物体1的四个角标, shape=(4,2)
-    c2: 物体2的四个角标, shape=(4,2)
-    v1: 物体1的速度, shape=(2,)
-    v2: 物体2的速度, shape=(2,)
-    m1: 物体1的质量, shape=1
-    m2: 物体2的质量, shape=1
+    检测物体相撞后的位置和速度，物体均是轴对称的（长方形）
+    n: 小车的数量
+    m: 障碍物的数量
+    c: 小车的四个角标, shape=(n,4,2)
+    v: 小车的速度, shape=(n,2,)
+    m: 小车的质量, shape=(n,)
+    obstacles: 障碍物的四个角标, shape=(m,4,2)
     collision_coefficient: 碰撞系数, shape=1
     timestep: 时间步长, shape=1
-    return: 物体1和物体2相撞后的位置和速度
-    return: 是否发生碰撞
+    return: 小车相撞后的位置, shape=(n,4,2)
+    return: 小车相撞后的速度, shape=(n,2,)
     '''
-    # 提取包围盒坐标
-    min_x1, max_x1 = np.min(c1[:, 0]), np.max(c1[:, 0])
-    min_y1, max_y1 = np.min(c1[:, 1]), np.max(c1[:, 1])
-    min_x2, max_x2 = np.min(c2[:, 0]), np.max(c2[:, 0])
-    min_y2, max_y2 = np.min(c2[:, 1]), np.max(c2[:, 1])
+    # 先用包围盒算法粗略检测是否重叠
+    # 先计算包围盒
+    num_cars = c.shape[0]
+    num_obstacles = obstacles.shape[0]
 
-    # 碰撞检测
-    collision = (max_x1 >= min_x2) and (min_x1 <= max_x2) and \
-                (max_y1 >= min_y2) and (min_y1 <= max_y2)
+    # 向量化计算小车包围盒
+    car_min_x = np.min(c[:, :, 0], axis=1)
+    car_max_x = np.max(c[:, :, 0], axis=1)
+    car_min_y = np.min(c[:, :, 1], axis=1)
+    car_max_y = np.max(c[:, :, 1], axis=1)
+
+    # 向量化计算障碍物包围盒
+    obs_min_x = np.min(obstacles[:, :, 0], axis=1)
+    obs_max_x = np.max(obstacles[:, :, 0], axis=1)
+    obs_min_y = np.min(obstacles[:, :, 1], axis=1)
+    obs_max_y = np.max(obstacles[:, :, 1], axis=1)
+
+    #################################################
+    # 小车与障碍物
+    #################################################
+    # 广播以检查所有小车和障碍物的组合
+    car_min_x = car_min_x[:, np.newaxis]
+    car_max_x = car_max_x[:, np.newaxis]
+    car_min_y = car_min_y[:, np.newaxis]
+    car_max_y = car_max_y[:, np.newaxis]
+
+    # 计算是否重叠
+    overlaps_x = (car_min_x < obs_max_x) & (car_max_x > obs_min_x)
+    overlaps_y = (car_min_y < obs_max_y) & (car_max_y > obs_min_y)
+    overlaps = overlaps_x & overlaps_y
+
+    for i in range(num_cars):
+        for j in range(num_obstacles):
+            if overlaps[i, j]:
+                car = c[i]
+                obstacle = obstacles[j]
+                # 再用分离轴定理检测是否重叠
+                result = sat_collision(car, obstacle)
+                if result is not None:
+                    # 再分离重叠的矩形
+                    # c[i] = separate_overlap(car, obstacle)
+                    insert_points1, insert_points2 = result
+                    (c[i], v[i]), _ = collision_separation(c[i], v[i], m[i], size[i], insert_points1, obstacles[j], np.zeros_like(v[i]), np.inf, calculate_rectangle_size(obstacles[j]), insert_points2, collision_coefficient, timestep)
     
-    if not collision:
-        return c1, c2, v1, v2, False
+    ##################################################################
+    # 小车与小车
+    ##################################################################
+    # 重新计算小车包围盒用于小车之间的检测
+    car_min_x = np.min(c[:, :, 0], axis=1)
+    car_max_x = np.max(c[:, :, 0], axis=1)
+    car_min_y = np.min(c[:, :, 1], axis=1)
+    car_max_y = np.max(c[:, :, 1], axis=1)
 
-    # 计算重叠量
-    overlap_x = min(max_x1, max_x2) - max(min_x1, min_x2)
-    overlap_y = min(max_y1, max_y2) - max(min_y1, min_y2)
+    # 广播以检查所有小车和小车的组合
+    car_min_x_1 = car_min_x[:, np.newaxis]
+    car_max_x_1 = car_max_x[:, np.newaxis]
+    car_min_y_1 = car_min_y[:, np.newaxis]
+    car_max_y_1 = car_max_y[:, np.newaxis]
 
-    # 确定碰撞法线方向
-    if overlap_x < overlap_y:
-        # X轴方向碰撞
-        center1 = (min_x1 + max_x1) / 2
-        center2 = (min_x2 + max_x2) / 2
-        n = np.array([1, 0]) if center1 < center2 else np.array([-1, 0])
-    else:
-        # Y轴方向碰撞
-        center1 = (min_y1 + max_y1) / 2
-        center2 = (min_y2 + max_y2) / 2
-        n = np.array([0, 1]) if center1 < center2 else np.array([0, -1])
+    overlaps_x_car = (car_min_x_1 < car_max_x) & (car_max_x_1 > car_min_x)
+    overlaps_y_car = (car_min_y_1 < car_max_y) & (car_max_y_1 > car_min_y)
+    overlaps_car = overlaps_x_car & overlaps_y_car
 
-    # 计算实际重叠量
-    if n[0] != 0:  # X轴方向
-        overlap = max_x1 - min_x2 if n[0] > 0 else max_x2 - min_x1
-    else:          # Y轴方向
-        overlap = max_y1 - min_y2 if n[1] > 0 else max_y2 - min_y1
+    for i in range(num_cars):
+        for j in range(i + 1, num_cars):  # 避免重复检查
+            if overlaps_car[i, j]:
+                car1 = c[i]
+                car2 = c[j]
+                # 再用分离轴定理检测是否重叠
+                result = sat_collision(car1, car2)
+                if result is not None:
+                    # 再分离重叠的矩形
+                    # c[i], c[j] = separate_overlap_car(car1, car2)
+                    insert_points1, insert_points2 = result
+                    (c[i], v[i]), (c[j], v[j]) = collision_separation(c[i], v[i], m[i], size[i], insert_points1, c[j], v[j], m[j], size[j], insert_points2, collision_coefficient, timestep)
+                    
 
-    # 计算法线方向的相对速度
-    v_rel = np.dot(v1 - v2, n)
+    return c, v
+
+
+def collision_separation(c1, v1, m1, size1, insert_points1, c2, v2, m2, size2, insert_points2, collision_coefficient=0.8, timestep=0.01):
+    """
+    碰撞分离，根据碰撞法线，计算接触点，从而计算两个物体碰撞后的位置和速度（需考虑旋转）
+
+    参数:
+    c1 (numpy.ndarray): 物体1的四个角标，形状为 (4, 2)。
+    v1 (numpy.ndarray): 物体1的速度，形状为 (2,)。
+    m1 (float): 物体1的质量。
+    size1 (tuple): 物体1的大小，形状为 (2,)。
+    insert_points1 (numpy.ndarray): 物体1的插入点，形状为 (4,)，类型是 bool。
+    c2 (numpy.ndarray): 物体2的四个角标，形状为 (4, 2)。
+    v2 (numpy.ndarray): 物体2的速度，形状为 (2,)。
+    m2 (float): 物体2的质量。
+    size2 (tuple): 物体2的大小，形状为 (2,)。
+    insert_points2 (numpy.ndarray): 物体2的插入点，形状为 (4,)，类型是 bool。
+    collision_coefficient (float, 可选): 碰撞系数，默认为 0.8。
+    timestep (float, 可选): 时间步长，默认为 0.01。
+
+    返回:
+    tuple: 包含物体1和物体2碰撞后的位置和速度的元组。
+    """
+    # 旋转
+    def calculate_rotation_angle(corner, center, m, size, insert_points, v, timestep, collision_coefficient):
+        # 计算插入点中点
+        insert_point = np.mean(insert_points, axis=0)
+        
+        # 计算相对位置向量（从质心到碰撞点）
+        r_vector = insert_point - center
+        
+        # 计算转动惯量
+        width = size[0]
+        height = size[1]
+        I = m * (width**2 + height**2) / 12  # 矩形转动惯量公式
+        
+        # 计算扭矩（r × F，这里F近似为速度方向）
+        torque = np.cross(r_vector, v)
+        
+        # 计算角加速度（Δω = τ/I * timestep）
+        rotation_factor = torque / (I + 1e-6) * timestep * collision_coefficient
+        
+        # 计算最终旋转角度（限制最大旋转幅度）
+        return rotation_factor
+
+
+    # 首先，我们需要计算两个多边形的质心
+    centroid1 = np.mean(c1, axis=0)
+    centroid2 = np.mean(c2, axis=0)
+
+    # 计算旋转角度
+    rotation_angle1 = calculate_rotation_angle(c1, centroid1, m1, size1, insert_points2, v2, timestep, collision_coefficient)
+    rotation_angle2 = calculate_rotation_angle(c2, centroid2, m2, size2, insert_points1, v1, timestep, collision_coefficient)
+    # 构建旋转矩阵
+    rotation_matrix1 = np.array([
+        [np.cos(rotation_angle1), -np.sin(rotation_angle1)],
+        [np.sin(rotation_angle1), np.cos(rotation_angle1)] 
+    ])
+    rotation_matrix2 = np.array([
+        [np.cos(rotation_angle2), -np.sin(rotation_angle2)],
+        [np.sin(rotation_angle2), np.cos(rotation_angle2)] 
+    ])
     
-    # 分离状态不处理
-    if v_rel > 0:
-        return c1, c2, v1, v2, False
+    # 将角标相对于质心的位置旋转
+    car1_separated_relative = c1 - centroid1
+    car1_separated_rotated_relative = np.dot(car1_separated_relative, rotation_matrix1)
 
-    # 计算冲量
-    j = -(1 + collision_coefficient) * v_rel / (1/m1 + 1/m2)
-    
-    # 更新速度
-    v1_new = v1 + (j * n) / m1
-    v2_new = v2 - (j * n) / m2
+    # 将旋转后的角标位置还原到原坐标系
+    c1 = car1_separated_rotated_relative + centroid1
 
-    # 计算位置修正量
-    total_mass = m1 + m2
-    delta1 = (m2 / total_mass) * overlap * n if m2 != np.inf else overlap * n
-    delta2 = -(m1 / total_mass) * overlap * n
+    if m2 != np.inf:
+        car2_separated_relative = c2 - centroid2
+        car2_separated_rotated_relative = np.dot(car2_separated_relative, rotation_matrix2)
+        c2 = car2_separated_rotated_relative + centroid2
 
-    # 应用位置修正
-    new_c1 = c1 + delta1
-    new_c2 = c2 + delta2
+    # 对两个多边形的速度进行旋转
+    v1 = np.dot(v1, rotation_matrix1)
+    v2 = np.dot(v2, rotation_matrix2) if m2!= np.inf else v2
 
-    
+    # 速度减小
+    v1 = v1 * collision_coefficient
+    v2 = v2 * collision_coefficient
 
-    print("###################################################")
-    print("发生碰撞！")
-    # print(f"v1_new: {v1_new}")
-    # print(f"v2_new: {v2_new}")
-    # print(f"delta1: {delta1 + v1_new * timestep}")
-    # print(f"delta2: {delta2 + v2_new * timestep}")
-    # print(f"new_c1: {np.average(new_c1, axis=0)}")
-    # print(f"new_c2: {np.average(new_c2, axis=0)}")
-    # print(f"timestep: {timestep}")
-    print("###################################################")
 
-    return new_c1, new_c2, v1_new, v2_new, True
+    return (c1, v1), (c2, v2)
+
+
+
+
 
 
 def is_overlapping(poly1, poly2):
@@ -319,6 +422,206 @@ def separate_overlap(car, other):
     if dy != 0:
         car[:, 1] -= np.sign(dy) * 0.1
     return car
+
+def separate_overlap_and_rotate(car_corner, car_v, obstacle):
+    """
+    分离两个重叠的多边形
+    第一个矩形向反方向移动的同时, 根据重叠的部分, 旋转第一个矩形
+
+    参数:
+    car_corner (numpy.ndarray): 小车矩形的四个角的坐标，形状为 (4, 2)。
+    car_v (numpy.ndarray): 小车的速度向量，形状为 (2,)。
+    obstacle (numpy.ndarray): 障碍物矩形的四个角的坐标，形状为 (4, 2)。
+
+    返回:
+    tuple: 分离并旋转后的小车矩形的四个角的坐标和速度向量。
+    """
+    def rotate_and_move(car_corner, car_v, diff, axis):
+        if diff != 0:
+            # 移动
+            car_corner[:, axis] -= np.sign(diff) * 0.1
+            # 动态调整旋转角度
+            rotation_angle = np.sign(diff) * 0.01 * np.abs(diff)
+            # 构建旋转矩阵
+            rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
+                                        [np.sin(rotation_angle), np.cos(rotation_angle)]])
+            # 对小车矩形的四个角的坐标进行旋转
+            car_corner = np.dot(car_corner, rotation_matrix)
+            # 对小车的速度向量进行旋转
+            car_v = np.dot(car_v, rotation_matrix)
+        return car_corner, car_v
+
+    # 计算小车和障碍物在 x 轴方向的中心位置差值
+    dx = np.mean(obstacle[:, 0]) - np.mean(car_corner[:, 0])
+    # 计算小车和障碍物在 y 轴方向的中心位置差值
+    dy = np.mean(obstacle[:, 1]) - np.mean(car_corner[:, 1])
+
+    # 处理 x 轴方向
+    car_corner, car_v = rotate_and_move(car_corner, car_v, dx, 0)
+    # 处理 y 轴方向
+    car_corner, car_v = rotate_and_move(car_corner, car_v, dy, 1)
+
+    return car_corner, car_v
+
+def separate_overlap_and_rotate_car(car1_corner, car1_v, car2_corner, car2_v):
+    """
+    分离两个重叠的多边形
+    第一个矩形向反方向移动的同时, 根据重叠的部分, 旋转第一个矩形
+    第二个矩形向反方向移动的同时, 根据重叠的部分, 旋转第二个矩形
+
+    参数:
+    car1_corner (numpy.ndarray): 第一个小车矩形的四个角的坐标，形状为 (4, 2)。
+    car1_v (numpy.ndarray): 第一个小车的速度向量，形状为 (2,)。
+    car2_corner (numpy.ndarray): 第二个小车矩形的四个角的坐标，形状为 (4, 2)。
+    car2_v (numpy.ndarray): 第二个小车的速度向量，形状为 (2,)。
+
+    返回:
+    tuple: 分离并旋转后的两个小车矩形的四个角的坐标和速度向量。
+    """
+    def rotate_and_move(car_corner, car_v, diff, axis):
+        if diff != 0:
+            # 移动
+            car_corner[:, axis] -= np.sign(diff) * 0.1
+            # 动态调整旋转角度
+            rotation_angle = np.sign(diff) * 0.01 * np.abs(diff)
+            # 构建旋转矩阵
+            rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
+                                        [np.sin(rotation_angle), np.cos(rotation_angle)]])
+            # 对小车矩形的四个角的坐标进行旋转
+            car_corner = np.dot(car_corner, rotation_matrix)
+            # 对小车的速度向量进行旋转
+            car_v = np.dot(car_v, rotation_matrix)
+        return car_corner, car_v
+
+    # 计算两个小车在 x 轴方向的中心位置差值
+    dx = np.mean(car2_corner[:, 0]) - np.mean(car1_corner[:, 0])
+    # 计算两个小车在 y 轴方向的中心位置差值
+    dy = np.mean(car2_corner[:, 1]) - np.mean(car1_corner[:, 1])
+
+    # 处理第一个小车在 x 轴方向
+    car1_corner, car1_v = rotate_and_move(car1_corner, car1_v, dx, 0)
+    # 处理第一个小车在 y 轴方向
+    car1_corner, car1_v = rotate_and_move(car1_corner, car1_v, dy, 1)
+
+    # 反向处理第二个小车在 x 轴方向
+    car2_corner, car2_v = rotate_and_move(car2_corner, car2_v, -dx, 0)
+    # 反向处理第二个小车在 y 轴方向
+    car2_corner, car2_v = rotate_and_move(car2_corner, car2_v, -dy, 1)
+
+    return car1_corner, car1_v, car2_corner, car2_v
+
+
+def separate_overlap_car(car1, car2):
+    """
+    分离两个重叠的多边形
+    两个多边形向反方向移动
+    """
+    # 首先，我们需要计算两个多边形的质心
+    centroid1 = np.mean(car1, axis=0)
+    centroid2 = np.mean(car2, axis=0)
+
+    # 计算从质心1到质心2的向量
+    separation_vector = centroid2 - centroid1
+
+    # 归一化分离向量
+    separation_vector = separation_vector / np.linalg.norm(separation_vector)
+
+    # 假设我们每次分离移动一个固定的小距离，这里设为0.1
+    separation_distance = 0.1
+
+    # 两个多边形向反方向移动
+    car1_separated = car1 - separation_vector * separation_distance
+    car2_separated = car2 + separation_vector * separation_distance
+
+    return car1_separated, car2_separated
+
+
+def resolve_overlaps_vector(cars_corners, obstacles):
+    """
+    分离重叠的矩形
+    cars_corners: 小车的四个角标, shape=(n, 4, 2)
+    obstacles: 障碍物的四个角标, shape=(m, 4, 2)
+    return: 分离重叠的矩形后的小车的四个角标, shape=(n, 4, 2)
+    """
+    # 先用包围盒算法粗略检测是否重叠
+    # 先计算包围盒
+    num_cars = cars_corners.shape[0]
+    num_obstacles = obstacles.shape[0]
+
+    # 向量化计算小车包围盒
+    car_min_x = np.min(cars_corners[:, :, 0], axis=1)
+    car_max_x = np.max(cars_corners[:, :, 0], axis=1)
+    car_min_y = np.min(cars_corners[:, :, 1], axis=1)
+    car_max_y = np.max(cars_corners[:, :, 1], axis=1)
+
+    # 向量化计算障碍物包围盒
+    obs_min_x = np.min(obstacles[:, :, 0], axis=1)
+    obs_max_x = np.max(obstacles[:, :, 0], axis=1)
+    obs_min_y = np.min(obstacles[:, :, 1], axis=1)
+    obs_max_y = np.max(obstacles[:, :, 1], axis=1)
+
+    #################################################
+    # 小车与障碍物
+    #################################################
+    # 广播以检查所有小车和障碍物的组合
+    car_min_x = car_min_x[:, np.newaxis]
+    car_max_x = car_max_x[:, np.newaxis]
+    car_min_y = car_min_y[:, np.newaxis]
+    car_max_y = car_max_y[:, np.newaxis]
+
+    # 计算是否重叠
+    overlaps_x = (car_min_x < obs_max_x) & (car_max_x > obs_min_x)
+    overlaps_y = (car_min_y < obs_max_y) & (car_max_y > obs_min_y)
+    overlaps = overlaps_x & overlaps_y
+
+    for i in range(num_cars):
+        for j in range(num_obstacles):
+            if overlaps[i, j]:
+                car = cars_corners[i]
+                obstacle = obstacles[j]
+                # 再用分离轴定理检测是否重叠
+                result = sat_collision(car, obstacle)
+                if result is not None:
+                    # 再分离重叠的矩形
+                    cars_corners[i] = separate_overlap(car, obstacle)
+    
+    ##################################################################
+    # 小车与小车
+    ##################################################################
+    # 重新计算小车包围盒用于小车之间的检测
+    car_min_x = np.min(cars_corners[:, :, 0], axis=1)
+    car_max_x = np.max(cars_corners[:, :, 0], axis=1)
+    car_min_y = np.min(cars_corners[:, :, 1], axis=1)
+    car_max_y = np.max(cars_corners[:, :, 1], axis=1)
+
+    # 广播以检查所有小车和小车的组合
+    car_min_x_1 = car_min_x[:, np.newaxis]
+    car_max_x_1 = car_max_x[:, np.newaxis]
+    car_min_y_1 = car_min_y[:, np.newaxis]
+    car_max_y_1 = car_max_y[:, np.newaxis]
+
+    overlaps_x_car = (car_min_x_1 < car_max_x) & (car_max_x_1 > car_min_x)
+    overlaps_y_car = (car_min_y_1 < car_max_y) & (car_max_y_1 > car_min_y)
+    overlaps_car = overlaps_x_car & overlaps_y_car
+
+    for i in range(num_cars):
+        for j in range(i + 1, num_cars):  # 避免重复检查
+            if overlaps_car[i, j]:
+                car1 = cars_corners[i]
+                car2 = cars_corners[j]
+                # 再用分离轴定理检测是否重叠
+                result = sat_collision(car1, car2)
+                if result is not None:
+                    # 再分离重叠的矩形
+                    cars_corners[i], cars_corners[j] = separate_overlap_car(car1, car2)
+
+    return cars_corners
+
+
+
+
+
+
 
 def resolve_overlaps(cars_corners, obstacles):
     n = len(cars_corners)
@@ -765,9 +1068,9 @@ def test_calculate_circular_motion():
     #     print(f"  Vectorized time: {time_vector:.6f} seconds")
     #     print(f"  Speedup: {time_loop / time_vector:.2f}x")
 
-# 运行测试
-if __name__ == "__main__":
-    test_calculate_circular_motion()
+# # 运行测试
+# if __name__ == "__main__":
+#     test_calculate_circular_motion()
 
 
 ###################################################################################
@@ -1061,3 +1364,70 @@ def test_calculate_deceleration_motion():
 
 # # 运行测试
 # test_calculate_deceleration_motion()
+
+
+#########################################################################################################
+# 碰撞检测
+#########################################################################################################
+
+def sat_collision(c1, c2):
+    """
+    使用分离轴定理（SAT）检测两个矩形是否发生碰撞。
+
+    参数:
+    c1 (numpy.ndarray): 第一个矩形的四个角的坐标，形状为 (4, 2)。
+    c2 (numpy.ndarray): 第二个矩形的四个角的坐标，形状为 (4, 2)。
+
+    返回:
+    tuple: 如果发生碰撞，返回在对方内部的点；如果未发生碰撞，返回 None。
+    """
+    # 存储所有可能的分离轴
+    axes = []
+    # 遍历第一个矩形的每条边
+    for i in range(4):
+        # 获取当前边的向量
+        edge = c1[(i + 1) % 4] - c1[i]
+        # 计算垂直于边的轴
+        axis = np.array([-edge[1], edge[0]])
+        # 归一化轴向量
+        axis = axis / np.linalg.norm(axis)
+        axes.append(axis)
+
+    # 遍历第二个矩形的每条边
+    for i in range(4):
+        # 获取当前边的向量
+        edge = c2[(i + 1) % 4] - c2[i]
+        # 计算垂直于边的轴
+        axis = np.array([-edge[1], edge[0]])
+        # 归一化轴向量
+        axis = axis / np.linalg.norm(axis)
+        axes.append(axis)
+
+    # 初始化在对方内部的点（全在）
+    insert_points1 = np.ones(c1.shape[0], dtype=bool)
+    insert_points2 = np.ones(c2.shape[0], dtype=bool)
+
+    # 遍历所有分离轴
+    for axis in axes:
+        # 投影第一个矩形的顶点到当前轴上
+        projections_c1 = np.dot(c1, axis)
+        # 找到投影的最小值和最大值
+        min_c1 = np.min(projections_c1)
+        max_c1 = np.max(projections_c1)
+
+        # 投影第二个矩形的顶点到当前轴上
+        projections_c2 = np.dot(c2, axis)
+        # 找到投影的最小值和最大值
+        min_c2 = np.min(projections_c2)
+        max_c2 = np.max(projections_c2)
+
+        # 检查投影是否重叠
+        if max_c1 < min_c2 or max_c2 < min_c1:
+            # 如果没有重叠，则两个矩形没有碰撞
+            return None
+
+        # 计算那些点在对方内部
+        insert_points1 = np.logical_and(insert_points1, (projections_c1 >= min_c2) & (projections_c1 <= max_c2))
+        insert_points2 = np.logical_and(insert_points2, (projections_c2 >= min_c1) & (projections_c2 <= max_c1))
+
+    return insert_points1, insert_points2

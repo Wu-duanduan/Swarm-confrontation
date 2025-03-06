@@ -6,6 +6,8 @@ from physical_law_tool import calculate_obstacles_corner, test_case_render, coll
 
 from physical_law_tool import calculate_deceleration_motion, calculate_acceleration_motion_vector, calculate_circular_motion_vector
 
+from physical_law_tool import resolve_overlaps_vector
+
 class PhysicalLaw:
     # 不变的常量
     GRAVITY = 10 # 重力加速度
@@ -121,8 +123,6 @@ class PhysicalLaw:
         q_2d = q[:, :2].copy()
         v_2d = v.copy()
 
-        trajectory_record = []
-
         # 判断需要加速还是减速
         accelerate_condition = np.linalg.norm(vNext, axis=1) > np.linalg.norm(v, axis=1)
         # 如果需要加速则分配全部时间给转向
@@ -155,8 +155,6 @@ class PhysicalLaw:
 
         return q_2d, v_2d
         
-
-
     def get_cars_corners(self, centers, velocities):
         """
         根据所有小车的中心点位置、长宽和速度方向，计算所有小车的四个角标（向量化版本）
@@ -212,56 +210,57 @@ class PhysicalLaw:
                  2. 碰撞后所有小车的速度，形状为 (m, 2)
         """
         # return self.check_collisions_vectorized(car_centers, car_velocities, collision_time)
-        obstacles = self.obstacles_corner
-        m = len(car_centers)
-        n = len(obstacles)
+        # obstacles = self.obstacles_corner
+        # m = len(car_centers)
+        # n = len(obstacles)
 
         # 计算碰撞后小车的位置和速度
         new_car_centers = car_centers.copy()
         new_car_velocities = car_velocities.copy()
 
-        collision_happened = False
+        # collision_happened = False
 
         # 检查小车与障碍物是否碰撞
         cars_corners = self.get_cars_corners(car_centers, car_velocities)
-        for i in range(m):
-            car_corners = cars_corners[i]
-            for j in range(n):
-                new_c1, _, new_v1, _, collision = collision_response(car_corners, obstacles[j], 
-                                                          new_car_velocities[i], np.zeros_like(new_car_velocities[i]),
-                                                          self.cars_mass[i], np.inf,
-                                                          self.collision_coefficient, collision_time)
-                # new_c1.shape = (4, 2)
-                # new_car_centers[i].shape = (2,)
-                new_car_centers[i] = np.average(new_c1, axis=0)
-                new_car_velocities[i] = new_v1
-                if collision:
-                    cars_corners = self.get_cars_corners(new_car_centers, new_car_velocities)
-                    car_corners = cars_corners[i]
-                    collision_happened = True
+        # for i in range(m):
+        #     car_corners = cars_corners[i]
+        #     for j in range(n):
+        #         new_c1, _, new_v1, _, collision = collision_detection(car_corners, obstacles[j], 
+        #                                                   new_car_velocities[i], np.zeros_like(new_car_velocities[i]),
+        #                                                   self.cars_mass[i], np.inf,
+        #                                                   self.collision_coefficient, collision_time)
+        #         # new_c1.shape = (4, 2)
+        #         # new_car_centers[i].shape = (2,)
+        #         new_car_centers[i] = np.average(new_c1, axis=0)
+        #         new_car_velocities[i] = new_v1
+        #         if collision:
+        #             cars_corners = self.get_cars_corners(new_car_centers, new_car_velocities)
+        #             car_corners = cars_corners[i]
+        #             collision_happened = True
 
-        # 检查小车与小车之间是否碰撞
-        for i in range(m):
-            car1_corners = cars_corners[i]
-            for j in range(i + 1, m):
-                car2_corners = cars_corners[j]
-                new_c1, new_c2, new_v1, new_v2, collision = collision_response(car1_corners, car2_corners,
-                                                                  new_car_velocities[i], new_car_velocities[j],
-                                                                  self.cars_mass[i], self.cars_mass[j],
-                                                                  self.collision_coefficient, collision_time)
-                new_car_centers[i] = np.average(new_c1, axis=0)
-                new_car_centers[j] = np.average(new_c2, axis=0)
-                new_car_velocities[i] = new_v1
-                new_car_velocities[j] = new_v2
-                if collision:
-                    cars_corners = self.get_cars_corners(new_car_centers, new_car_velocities)
-                    car1_corners = cars_corners[i]
-                    collision_happened = True
+        # # 检查小车与小车之间是否碰撞
+        # for i in range(m):
+        #     car1_corners = cars_corners[i]
+        #     for j in range(i + 1, m):
+        #         car2_corners = cars_corners[j]
+        #         new_c1, new_c2, new_v1, new_v2, collision = collision_detection(car1_corners, car2_corners,
+        #                                                           new_car_velocities[i], new_car_velocities[j],
+        #                                                           self.cars_mass[i], self.cars_mass[j],
+        #                                                           self.collision_coefficient, collision_time)
+        #         new_car_centers[i] = np.average(new_c1, axis=0)
+        #         new_car_centers[j] = np.average(new_c2, axis=0)
+        #         new_car_velocities[i] = new_v1
+        #         new_car_velocities[j] = new_v2
+        #         if collision:
+        #             cars_corners = self.get_cars_corners(new_car_centers, new_car_velocities)
+        #             car1_corners = cars_corners[i]
+        #             collision_happened = True
         
         # 处理重叠的情况
-        if collision_happened:
-            cars_corners = resolve_overlaps(cars_corners, self.obstacles_corner)
-            new_car_centers = np.average(cars_corners, axis=1)
+        # if collision_happened:
+        cars_corners, new_car_velocities = collision_response(cars_corners, new_car_velocities, self.cars_mass, self.cars_size, self.obstacles_corner, self.collision_coefficient, self.timestep / 10)
+        cars_corners = resolve_overlaps_vector(cars_corners, self.obstacles_corner)
+        new_car_centers = np.average(cars_corners, axis=1)
         return new_car_centers, new_car_velocities
 
     def calculate_trajectory_2d(self, q: np.array, v: np.array, a: np.array, m: int) -> tuple[np.array, np.array]:
