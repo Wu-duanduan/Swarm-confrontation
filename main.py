@@ -120,7 +120,7 @@ if __name__ == "__main__":
         "cars_power" : np.clip(np.random.normal(45, 5, iifds.numberofuav), 40, 50),
         "cars_friction_coefficient" : np.clip(np.random.normal(0.3, 0.2, iifds.numberofuav), 0.28, 0.32),
         "collision_coefficient" : np.clip(np.random.normal(0.95, 0.05, 1), 0.9, 1).item(),
-        # 感知随机参数
+        # 感知随机参数 对比
         "cars_position_noise" : np.clip(np.random.normal(0.01, 0.002, 1), 0.008, 0.012).item(),
     }
 
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         # 感知域随机化，为单车感知到的其他无人车的位置信息添加噪声
         perception_q.updata_actrual_q(q)
         random_q = perception_q.get_observation()
-        random_q, q = random_q, q
+        random_q, q = q, random_q
         # ===========================
 
         # ===========================
