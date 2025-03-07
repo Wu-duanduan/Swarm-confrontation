@@ -115,13 +115,13 @@ if __name__ == "__main__":
     # 收敛速度的上界为O((SA)^M)，其中M为随机参数的数量
     random_params = {
         # 动力学约束随机参数
-        "cars_mass" : np.random.uniform(2, 3, iifds.numberofuav),
-        "cars_force" : np.random.uniform(15, 20, iifds.numberofuav),
-        "cars_power" : np.random.uniform(40, 50, iifds.numberofuav),
-        "cars_friction_coefficient" : np.random.uniform(0.28, 0.32, iifds.numberofuav),
-        "collision_coefficient" : random.random() / 10 + 0.9,
+        "cars_mass" : np.clip(np.random.normal(2.5, 0.5, iifds.numberofuav), 2, 3),
+        "cars_force" : np.clip(np.random.normal(17.5, 2.5, iifds.numberofuav), 15, 20),
+        "cars_power" : np.clip(np.random.normal(45, 5, iifds.numberofuav), 40, 50),
+        "cars_friction_coefficient" : np.clip(np.random.normal(0.3, 0.2, iifds.numberofuav), 0.28, 0.32),
+        "collision_coefficient" : np.clip(np.random.normal(0.95, 0.05, 1), 0.9, 1).item(),
         # 感知随机参数
-        "cars_position_noise" : np.random.uniform(0.01, 0.03, iifds.numberofuav),
+        "cars_position_noise" : np.clip(np.random.normal(0.01, 0.002, 1), 0.008, 0.012).item(),
     }
 
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         cars_force=random_params["cars_force"],  # 小车动力, 1维向量
         cars_power=random_params["cars_power"],  # 小车功率, 1维向量
         cars_friction_coefficient=random_params["cars_friction_coefficient"],  # 小车的摩擦系数, 1维向量
-        cars_size = [[iifds.uavR * 7 / 5, iifds.uavR * 2]] * iifds.numberofuav,  # 小车的长宽, 2维向量
+        cars_size = [[iifds.uavR * 2, iifds.uavR]] * iifds.numberofuav,  # 小车的长宽, 2维向量
         cars_wheel_spacing=[1] * iifds.numberofuav,  # 小车的轮间距, 1维向量
         cars_wheel_radius=[2] * iifds.numberofuav,  # 小车的轮半径, 1维向量
         obstacles_center=obsCenter[:, :2],  # 障碍物的中心点, 2维向量
@@ -175,6 +175,15 @@ if __name__ == "__main__":
         # ===========================
 
         # ===========================
+        # 感知域随机化（马子豪）
+        # ===========================
+        # 感知域随机化，为单车感知到的其他无人车的位置信息添加噪声
+        perception_q.updata_actrual_q(q)
+        random_q = perception_q.get_observation()
+        random_q, q = random_q, q
+        # ===========================
+
+        # ===========================
         # 无人机任务分配模块（孙若斋）
         # ===========================
         # 根据感知信息进行任务分配，goal为分配后的各无人车目标位置，ass_index为追击或支援无人车分配的目标序号，task_index为任务信息。
@@ -202,6 +211,7 @@ if __name__ == "__main__":
         # 无人车物理约束模块（马子豪）
         # ===========================
         # 无人车物理约束模块，输入为当前位置、速度、目标位置、角速度、时间步长，输出为下一时刻的位置、速度、角速度。
+        q, random_q = random_q, q
         start_t = time.time()
         qNext, vNext = physical_law.get_qvNext(q, v, vNext)
         end_t = time.time()
@@ -222,7 +232,7 @@ if __name__ == "__main__":
             else:
                 if task_index[j] == 0:  # 如果是追击
                     if iifds.distanceCost(goal[j], q[j]) < iifds.threshold and iifds.cos_cal(goal[j] - q[j],
-                                                                                             v[j]) < np.cos(
+                                                                                             v[j]) > np.cos(
                         iifds.hit_angle / 2):  # 目标小于开火范围
                         if random.random() < iifds.hit_rate:
                             if HP_index[ass_index[j]] > 0:

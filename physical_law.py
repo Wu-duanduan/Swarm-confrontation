@@ -63,9 +63,15 @@ class PhysicalLaw:
         q = np.array(deepcopy(q), dtype=np.float64)
         v = np.array(deepcopy(v), dtype=np.float64)
         vNext = np.array(vNext)
-        v_size = np.linalg.norm(v, axis=1)
-        mask = v_size < 1e-10
-        v[mask] = vNext[mask] * 1e-10
+        mask_v = np.linalg.norm(v, axis=1) < 1e-10
+        mask_vNext = np.linalg.norm(vNext, axis=1) < 1e-10
+        v[mask_v] = vNext[mask_v] * 1e-10
+        vNext[mask_vNext] = v[mask_vNext] * 1e-10
+        mask = mask_v & mask_vNext
+        v_ones = np.ones(v.shape)
+        v_ones[:, 2] = 0
+        v[mask] = v_ones[mask] * 1e-10
+        vNext[mask] =  v_ones[mask] * 1e-10
         qActual, vActual = self.get_qvNext_micro(q, v[:, :2], vNext[:, :2])
         # # 如果aAcural的模长为0，则将v乘1e-10赋值给vActual
         # v[:, :2] = vActual
@@ -177,8 +183,10 @@ class PhysicalLaw:
         corners[:, :, 0] = half_widths[:, np.newaxis] * base_corners[:, 0]  # x分量
         corners[:, :, 1] = half_heights[:, np.newaxis] * base_corners[:, 1]  # y分量
         
+        
         # 计算旋转角度
         angles = np.arctan2(velocities[:, 1], velocities[:, 0])  # (m,)
+
         cos_angles = np.cos(angles)
         sin_angles = np.sin(angles)
         
@@ -190,7 +198,7 @@ class PhysicalLaw:
         rotation_matrices[:, 1, 1] = cos_angles
         
         # 应用旋转：等价于 corners[i] @ rotation_matrices[i].T
-        rotated_corners = np.einsum('...ij,...jk->...ik', corners, rotation_matrices)
+        rotated_corners = np.einsum('...ij,...kj->...ik', corners, rotation_matrices)
         
         # 平移角点到中心点
         cars_corners = rotated_corners + centers[:, np.newaxis, :]
@@ -450,26 +458,26 @@ def multi_cars_with_obstacles():
     '''
     n = 3
     physical_law = PhysicalLaw(
-        cars_mass=[100] * n,  # 小车质量, 1维向量
-        cars_force=[200] * n,  # 小车动力, 1维向量
-        cars_power=[100] * n,  # 小车功率, 1维向量
-        cars_friction_coefficient=[0.1] * n,  # 小车的摩擦系数, 1维向量
-        cars_size = [[0.5, 0.5]] * n,  # 小车的长宽, 2维向量
+        cars_mass=[2.5] * n,  # 小车质量, 1维向量
+        cars_force=[17.5] * n,  # 小车动力, 1维向量
+        cars_power=[45] * n,  # 小车功率, 1维向量
+        cars_friction_coefficient=[0.3] * n,  # 小车的摩擦系数, 1维向量
+        cars_size = [[0.3 * 2, 0.3 * 7 / 5]] * n,  # 小车的长宽, 2维向量
         cars_wheel_spacing=[1] * n,  # 小车的轮间距, 1维向量
         cars_wheel_radius=[2] * n,  # 小车的轮半径, 1维向量
-        obstacles_center=[[0.5, 10]],  # 障碍物的中心点, 2维向量
+        obstacles_center=[],  # 障碍物的中心点, 2维向量
         obstacles_radius=0.1,  # 障碍物的半径, 1维向量
         timestep=0.1,  # 时间步长
-        collision_coefficient=0.1,  # 碰撞系数
+        collision_coefficient=0.95, # 碰撞后速度的衰减系数
     )
 
     total_time = 1.8  # 总时间
     total_step = int(total_time / physical_law.timestep)  # 总步数
     q = [[0., 0., 0.], [1., 0., 0.], [-5., 0., 0.]]  # 初始位置
-    v = [[1e-10, 0.], [-1e-10, 0.], [1e-10, 0.]]  # 初始速度
+    v = [[1e-10, 0., 0.], [-1e-10, 0., 0.], [1e-10, 0., 0.]]  # 初始速度
 
     # 目标速度
-    vNexts = [[[i * 0.1, i * 0.05], [-i * 0.1, i * 0.05], [0, 0]] for i in range(total_step)]
+    vNexts = [[[i * 0.1, i * 0.05, 0.], [-i * 0.1, i * 0.05, 0.], [0, 0, 0.]] for i in range(total_step)]
 
     # 开始测试
     qTotal = [q]
@@ -565,5 +573,5 @@ if __name__ == '__main__':
     # one_car_no_obstacles()
     # one_car_with_obstacles()
     # multi_cars_no_obstacles()
-    # multi_cars_with_obstacles()
-    collision_test()
+    multi_cars_with_obstacles()
+    # collision_test()

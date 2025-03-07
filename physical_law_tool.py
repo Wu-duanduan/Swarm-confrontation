@@ -152,12 +152,10 @@ def test_case_render(qTotal, vTotal, timestep, cars_size,
                 angle = np.arctan2(velocity[1], velocity[0])
                 rotation_matrix = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
 
-                corners = np.array([
-                    [-half_width, -half_height],
-                    [half_width, -half_height],
-                    [half_width, half_height],
-                    [-half_width, half_height]
-                ])
+                base_corners = np.array([[-1, -1], [1, -1], [1, 1], [-1, 1]], dtype=np.float32)  # (4, 2)
+                corners = np.empty((4, 2))
+                corners[:, 0] = half_width * base_corners[:, 0]  # x分量
+                corners[:, 1] = half_height * base_corners[:, 1]  # y分量
 
                 # 旋转角标
                 rotated_corners = np.dot(corners, rotation_matrix.T)
@@ -180,7 +178,7 @@ def test_case_render(qTotal, vTotal, timestep, cars_size,
                 center_screen_y = int(-center[1] * scale_y + screen_height / 2)
 
                 # 绘制速度方向线段
-                vx, vy = vTotal[step][i]
+                vx, vy = vTotal[step][i][:2]
                 vx_screen = int(vx * scale_x)
                 vy_screen = int(-vy * scale_y)  # 负号是因为 pygame 的 y 轴向下
                 end_x = center_screen_x + vx_screen
@@ -227,38 +225,39 @@ def collision_response(c, v, m, size, obstacles, collision_coefficient=0.8, time
     car_max_y = np.max(c[:, :, 1], axis=1)
 
     # 向量化计算障碍物包围盒
-    obs_min_x = np.min(obstacles[:, :, 0], axis=1)
-    obs_max_x = np.max(obstacles[:, :, 0], axis=1)
-    obs_min_y = np.min(obstacles[:, :, 1], axis=1)
-    obs_max_y = np.max(obstacles[:, :, 1], axis=1)
+    if len(obstacles) > 0:
+        obs_min_x = np.min(obstacles[:, :, 0], axis=1)
+        obs_max_x = np.max(obstacles[:, :, 0], axis=1)
+        obs_min_y = np.min(obstacles[:, :, 1], axis=1)
+        obs_max_y = np.max(obstacles[:, :, 1], axis=1)
 
-    #################################################
-    # 小车与障碍物
-    #################################################
-    # 广播以检查所有小车和障碍物的组合
-    car_min_x = car_min_x[:, np.newaxis]
-    car_max_x = car_max_x[:, np.newaxis]
-    car_min_y = car_min_y[:, np.newaxis]
-    car_max_y = car_max_y[:, np.newaxis]
+        #################################################
+        # 小车与障碍物
+        #################################################
+        # 广播以检查所有小车和障碍物的组合
+        car_min_x = car_min_x[:, np.newaxis]
+        car_max_x = car_max_x[:, np.newaxis]
+        car_min_y = car_min_y[:, np.newaxis]
+        car_max_y = car_max_y[:, np.newaxis]
 
-    # 计算是否重叠
-    overlaps_x = (car_min_x < obs_max_x) & (car_max_x > obs_min_x)
-    overlaps_y = (car_min_y < obs_max_y) & (car_max_y > obs_min_y)
-    overlaps = overlaps_x & overlaps_y
+        # 计算是否重叠
+        overlaps_x = (car_min_x < obs_max_x) & (car_max_x > obs_min_x)
+        overlaps_y = (car_min_y < obs_max_y) & (car_max_y > obs_min_y)
+        overlaps = overlaps_x & overlaps_y
 
-    for i in range(num_cars):
-        for j in range(num_obstacles):
-            if overlaps[i, j]:
-                car = c[i]
-                obstacle = obstacles[j]
-                # 再用分离轴定理检测是否重叠
-                result = sat_collision(car, obstacle)
-                if result is not None:
-                    # 再分离重叠的矩形
-                    # c[i] = separate_overlap(car, obstacle)
-                    insert_points1, insert_points2 = result
-                    (c[i], v[i]), _ = collision_separation(c[i], v[i], m[i], size[i], insert_points1, obstacles[j], np.zeros_like(v[i]), np.inf, calculate_rectangle_size(obstacles[j]), insert_points2, collision_coefficient, timestep)
-    
+        for i in range(num_cars):
+            for j in range(num_obstacles):
+                if overlaps[i, j]:
+                    car = c[i]
+                    obstacle = obstacles[j]
+                    # 再用分离轴定理检测是否重叠
+                    result = sat_collision(car, obstacle)
+                    if result is not None:
+                        # 再分离重叠的矩形
+                        # c[i] = separate_overlap(car, obstacle)
+                        insert_points1, insert_points2 = result
+                        (c[i], v[i]), _ = collision_separation(c[i], v[i], m[i], size[i], insert_points1, obstacles[j], np.zeros_like(v[i]), np.inf, calculate_rectangle_size(obstacles[j]), insert_points2, collision_coefficient, timestep)
+        
     ##################################################################
     # 小车与小车
     ##################################################################
@@ -337,6 +336,27 @@ def collision_separation(c1, v1, m1, size1, insert_points1, c2, v2, m2, size2, i
         
         # 计算最终旋转角度（限制最大旋转幅度）
         return rotation_factor
+    
+    def calculate_rotation_angle_center(center, m, size, collision_point, v, timestep, collision_coefficient):
+        # 计算插入点中点
+        insert_point = collision_point
+        
+        # 计算相对位置向量（从质心到碰撞点）
+        r_vector = (insert_point - center) * 2 / 3
+        
+        # 计算转动惯量
+        width = size[0]
+        height = size[1]
+        I = m * (width**2 + height**2) / 12  # 矩形转动惯量公式
+        
+        # 计算扭矩（r × F，这里F近似为速度方向）
+        torque = np.cross(r_vector, v)
+        
+        # 计算角加速度（Δω = τ/I * timestep）
+        rotation_factor = torque / (I + 1e-6) * timestep * collision_coefficient
+        
+        # 计算最终旋转角度（限制最大旋转幅度）
+        return rotation_factor
 
 
     # 首先，我们需要计算两个多边形的质心
@@ -344,8 +364,14 @@ def collision_separation(c1, v1, m1, size1, insert_points1, c2, v2, m2, size2, i
     centroid2 = np.mean(c2, axis=0)
 
     # 计算旋转角度
-    rotation_angle1 = calculate_rotation_angle(c1, centroid1, m1, size1, insert_points2, v2, timestep, collision_coefficient)
-    rotation_angle2 = calculate_rotation_angle(c2, centroid2, m2, size2, insert_points1, v1, timestep, collision_coefficient)
+    if m2 == np.inf:
+        rotation_angle1 = 0
+        rotation_angle2 = 0
+    else:
+        # rotation_angle1 = calculate_rotation_angle_center(centroid1, m1, size1, centroid2, v2, timestep, collision_coefficient)
+        # rotation_angle2 = calculate_rotation_angle_center(centroid2, m2, size2, centroid1, v1, timestep, collision_coefficient)
+        rotation_angle1 = calculate_rotation_angle(c1, centroid1, m1, size1, insert_points2, v2, timestep, collision_coefficient)
+        rotation_angle2 = calculate_rotation_angle(c2, centroid2, m2, size2, insert_points1, v1, timestep, collision_coefficient)
     # 构建旋转矩阵
     rotation_matrix1 = np.array([
         [np.cos(rotation_angle1), -np.sin(rotation_angle1)],
@@ -554,36 +580,37 @@ def resolve_overlaps_vector(cars_corners, obstacles):
     car_min_y = np.min(cars_corners[:, :, 1], axis=1)
     car_max_y = np.max(cars_corners[:, :, 1], axis=1)
 
-    # 向量化计算障碍物包围盒
-    obs_min_x = np.min(obstacles[:, :, 0], axis=1)
-    obs_max_x = np.max(obstacles[:, :, 0], axis=1)
-    obs_min_y = np.min(obstacles[:, :, 1], axis=1)
-    obs_max_y = np.max(obstacles[:, :, 1], axis=1)
+    if len(obstacles) > 0:
+        # 向量化计算障碍物包围盒
+        obs_min_x = np.min(obstacles[:, :, 0], axis=1)
+        obs_max_x = np.max(obstacles[:, :, 0], axis=1)
+        obs_min_y = np.min(obstacles[:, :, 1], axis=1)
+        obs_max_y = np.max(obstacles[:, :, 1], axis=1)
 
-    #################################################
-    # 小车与障碍物
-    #################################################
-    # 广播以检查所有小车和障碍物的组合
-    car_min_x = car_min_x[:, np.newaxis]
-    car_max_x = car_max_x[:, np.newaxis]
-    car_min_y = car_min_y[:, np.newaxis]
-    car_max_y = car_max_y[:, np.newaxis]
+        #################################################
+        # 小车与障碍物
+        #################################################
+        # 广播以检查所有小车和障碍物的组合
+        car_min_x = car_min_x[:, np.newaxis]
+        car_max_x = car_max_x[:, np.newaxis]
+        car_min_y = car_min_y[:, np.newaxis]
+        car_max_y = car_max_y[:, np.newaxis]
 
-    # 计算是否重叠
-    overlaps_x = (car_min_x < obs_max_x) & (car_max_x > obs_min_x)
-    overlaps_y = (car_min_y < obs_max_y) & (car_max_y > obs_min_y)
-    overlaps = overlaps_x & overlaps_y
+        # 计算是否重叠
+        overlaps_x = (car_min_x < obs_max_x) & (car_max_x > obs_min_x)
+        overlaps_y = (car_min_y < obs_max_y) & (car_max_y > obs_min_y)
+        overlaps = overlaps_x & overlaps_y
 
-    for i in range(num_cars):
-        for j in range(num_obstacles):
-            if overlaps[i, j]:
-                car = cars_corners[i]
-                obstacle = obstacles[j]
-                # 再用分离轴定理检测是否重叠
-                result = sat_collision(car, obstacle)
-                if result is not None:
-                    # 再分离重叠的矩形
-                    cars_corners[i] = separate_overlap(car, obstacle)
+        for i in range(num_cars):
+            for j in range(num_obstacles):
+                if overlaps[i, j]:
+                    car = cars_corners[i]
+                    obstacle = obstacles[j]
+                    # 再用分离轴定理检测是否重叠
+                    result = sat_collision(car, obstacle)
+                    if result is not None:
+                        # 再分离重叠的矩形
+                        cars_corners[i] = separate_overlap(car, obstacle)
     
     ##################################################################
     # 小车与小车
