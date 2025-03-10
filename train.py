@@ -154,6 +154,7 @@ if __name__ == "__main__":
             # 根据感知信息进行任务分配(actions)
             action = agent.take_action(state)
             task_index[0] = action - 3   
+            print("action:", task_index[0])
             goal, ass_index = iifds.allocation(q, goal, pos_b, pos_r, ta_index, obsCenter, all_close_opp, all_close_nei, task_index, i)
             ta_index = np.vstack((ta_index, task_index))
 
@@ -238,11 +239,12 @@ if __name__ == "__main__":
 
             if done:
                 break
+        print(f"Episode {episode_gone + 1}/{conf.MAX_EPISODE} | Reward: {episode_reward:.2f}")
 
         # if episode_gone > conf.MAX_EPISODE * 2 / 3:
         if episode_reward > maxReward:
             maxReward = episode_reward
-            print("历史最优reward，已保存模型！")
+            print("历史最优reward，已保存模型！reward = ", maxReward)
             torch.save({
                 'q_net': agent.q_net.state_dict(),
                 'best_reward': maxReward

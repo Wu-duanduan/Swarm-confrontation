@@ -331,8 +331,8 @@ class IIFDS:
             # # 检查 self.uav_com[i] 中是否有 nan
             # print("self.uav_com[i] 包含 nan:", np.isnan(self.uav_com[i]).any())
             distance_clean = np.where(np.isnan(distance[i]), None, distance[i])
-            # self.index_com[i] = list(map(distance[i].tolist().index, self.uav_com[i]))
-            self.index_com[i] = [IIFDS.safe_find_index(distance[i], val) for val in self.uav_com[i]]
+            self.index_com[i] = list(map(distance_clean.tolist().index, self.uav_com[i]))
+            # self.index_com[i] = [IIFDS.safe_find_index(distance[i], val) for val in self.uav_com[i]]
             for j in range(int(1)):
                 if int(self.index_com[i][j]) < self.numberofuav:
                     z1 = (uavPos[int(self.index_com[i][j])] - uavPos[i]) * (

@@ -15,6 +15,7 @@ import random
 from config import Config
 import argparse
 from battle import Battle
+from RL_brain import Qnet
 import pandas as pd
 import pyglet
 from pyglet import image
@@ -57,7 +58,15 @@ if __name__ == "__main__":
     env.reset()
     iifds = IIFDS()  # 使用 IIFDS 来处理无人车行为的细节（例如任务分配、路径规划等）。
     conf = Config()
+    state_dim = iifds.obs_dim
+    action_dim = len(iifds.action_space)
+    hidden_dim = conf.hidden_dim
     arglist = parse_args()
+    # 加载临机决策预训练模型
+    model = Qnet(state_dim, hidden_dim, action_dim)
+    checkpoint = torch.load("Assign_Model/best_model_-37.0.pth", map_location=device)
+    model.load_state_dict(checkpoint['q_net'])
+    model.eval()
     # 加载预训练的模型（Actor），用于无人车的路径规划。
     actors_cur1 = [None for _ in range(int(iifds.numberofuav / 2))]
     actors_cur2 = [None for _ in range(int(iifds.numberofuav / 2))]
@@ -109,7 +118,7 @@ if __name__ == "__main__":
     total_HP_index = HP_index.reshape(1, -1)  # 表示所有时刻各无人车的血量剩余情况
 
     fig_interval = 1
-    observe_agent = 0  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号
+    observe_agent = 1  # 设置需要观察的无人车序号，0表示全局模式，1-10分别为每个单独的无人车序号
     for i in range(3000):
 
         # 路径拼接
@@ -127,26 +136,44 @@ if __name__ == "__main__":
                 else:
                     pos_r.append(pos_r_all[j - int(iifds.numberofuav / 2)])
 
-        # ===========================
-        # 无人车态势感知模块（范沛源）
-        # ===========================
-        # （目前是基于通信）检测在无人车群体中每个无人车感知半径内的敌方、友方、正在追逐或者逃跑的友方，与其最接近的敌方和友方的序号。
-        all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei = iifds.detect(q, flag_uav, ta_index, HP_index,
-                                                                                   obsCenter)
+        # 初始感知信息
+        FOV = np.arctan(0.5) * 2
+        present_ids = env.render_BEV(q, v, iifds.R_1, FOV, observe_agent)     # 视野中车辆的编号
+        alive_cars = [car_id for car_id in present_ids if flag_uav[car_id] == 0]  # 视野中的存活车辆
+
+        # 构建固定长度的输入向量（10辆车 × 4个特征 = 40维）
+        state = []
+        for car_id in range(10):  # 遍历所有车辆0-9
+            if car_id in alive_cars:
+            # 提取x和y方向的位置和速度（忽略z轴）
+                q_x, q_y, _ = q[car_id] 
+                v_x, v_y, _ = v[car_id] 
+                state.extend([q_x, q_y, v_x, v_y])
+            else:
+            # 填充4个零（x位置, y位置, x速度, y速度）
+                state.extend([0.0, 0.0, 0.0, 0.0])
+
+        state = torch.tensor(state, dtype=torch.float32)
         # ===========================
 
         # ===========================
         # 无人机任务分配模块（孙若斋）
         # ===========================
         # 根据感知信息进行任务分配，goal为分配后的各无人车目标位置，ass_index为追击或支援无人车分配的目标序号，task_index为任务信息。
-        start_t = time.time()
         # goal, ass_index, task_index = iifds.assign(q, v, goal, missle_index, i,
         #                                            pos_b, pos_r, ta_index, obsCenter, all_opp, all_nei, all_nei_c2e,
         #                                            all_close_opp, all_close_nei)
+        all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei = iifds.detect(q, flag_uav, ta_index, HP_index, obsCenter)
         ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e = iifds.Meanfield(q, v, all_opp, all_nei, all_nei_c2e)
         task_index_blue = iifds.stateSelectionBlue(ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e, missle_index)
         task_index_red = iifds.stateSelectionRed(q, v, missle_index, all_opp, all_nei_c2e, all_close_opp)
         task_index = task_index_blue + task_index_red
+        start_t = time.time()
+        with torch.no_grad():
+            q_values = model(state)
+            action = q_values.argmax().item()
+            print(action)
+            task_index[0] = action - 3
         goal, ass_index = iifds.allocation(q, goal, pos_b, pos_r, ta_index, obsCenter, all_close_opp, all_close_nei, task_index, i)
         end_t = time.time()
         print("决策时间:", end_t - start_t, "s")
@@ -198,39 +225,32 @@ if __name__ == "__main__":
         # rew_n1 = getReward1(qNext, obsCenterNext, obs_num, goal, iifds, start)  # 每个agent使用相同的路径reward
         # rew_n2 = getReward2(qNext, obsCenterNext, obs_num, goal, iifds, start)
 
-        # ===========================
-        # 根据位置和速度绘图
-        # ===========================
-        env.render(q, v, iifds.R_1, all_opp[observe_agent - 1], all_nei[observe_agent - 1], total_HP_index[-1],
-                   iifds.HP_num, total_missle_index[-1] / 2, iifds.missle_num / 2, observe_agent,
-                   task_index)  # 画出上一时刻的无人车的位置速度、血量、弹药，以及无人机的位置速度
+        # if i % fig_interval == 0 and i != 0:  # 将态势保存为图片
+        #     try:
+        #         color_buffer = pyglet.image.get_buffer_manager().get_color_buffer()
 
-        if i % fig_interval == 0 and i != 0:  # 将态势保存为图片
-            try:
-                color_buffer = pyglet.image.get_buffer_manager().get_color_buffer()
+        #         # 获取图像的原始像素数据
+        #         image_data = color_buffer.get_image_data()
 
-                # 获取图像的原始像素数据
-                image_data = color_buffer.get_image_data()
+        #         # 将数据转换为 NumPy 数组（需要转换为 RGB 格式）
+        #         img_data = np.frombuffer(image_data.get_data('RGB', image_data.width * 3), dtype=np.uint8)
+        #         img_data = img_data.reshape((image_data.height, image_data.width, 3))
 
-                # 将数据转换为 NumPy 数组（需要转换为 RGB 格式）
-                img_data = np.frombuffer(image_data.get_data('RGB', image_data.width * 3), dtype=np.uint8)
-                img_data = img_data.reshape((image_data.height, image_data.width, 3))
+        #         # 翻转图像的垂直方向
+        #         img_data = np.flipud(img_data)  # 或者 img_data = img_data[::-1]
 
-                # 翻转图像的垂直方向
-                img_data = np.flipud(img_data)  # 或者 img_data = img_data[::-1]
+        #         # 使用 Pillow 保存图像
+        #         img = PILImage.fromarray(img_data)
 
-                # 使用 Pillow 保存图像
-                img = PILImage.fromarray(img_data)
-
-                filename = f"./fig_text/frame-{i}-@sec.png"
-                img.save(filename)
-                # if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
-                #     iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
-                #                                  all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
-                #                                  observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
-            except Exception as e:
-                # pass
-                print("error!")
+        #         filename = f"./fig_text/frame-{i}-@sec.png"
+        #         img.save(filename)
+        #         # if observe_agent > 0:  # 如果是无人车局部视角，进一步处理以及识别友军任务
+        #         #     iifds.find_and_label_regions(filename, ta_index[-1], all_opp[observe_agent - 1],
+        #         #                                  all_nei[observe_agent - 1], ass_index[observe_agent - 1], q,
+        #         #                                  observe_agent, i)  # 存储上一时刻的序号以及友军任务情况照片
+        #     except Exception as e:
+        #         # pass
+        #         print("error!")
         # ===========================
         qBefore = q
         q = qNext
