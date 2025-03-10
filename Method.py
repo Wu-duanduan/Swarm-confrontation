@@ -8,6 +8,179 @@ import random
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# class TacticalRewardSystem:
+#     def __init__(self):
+
+#         # 权重配置
+#         self.weights = {
+#             'base_chase': 0.2,
+#             'safe_attack_bonus': 2.0,
+#             'steer_penalty': -0.015,
+#             'predict_penalty': -0.5,
+#             'explore_per_grid': 0.1,
+#             'escape_penalty_if_safe': -1.5
+#         }
+        
+#         # 状态跟踪
+#         self.prev_pose = None
+#         self.explored_grids = set()
+#         self.enemy_history = {}  # {enemy_id: deque(maxlen=5)}
+
+#     def _relative_angle(self, src_pose, tgt_pos):
+#         """计算目标位置相对于源朝向的角度(-180~180)"""
+#         dx = tgt_pos[0] - src_pose[0]
+#         dy = tgt_pos[1] - src_pose[1]
+#         abs_angle = math.degrees(math.atan2(dy, dx))
+#         rel_angle = (abs_angle - src_pose[2] + 360) % 360
+#         return rel_angle - 360 if rel_angle > 180 else rel_angle
+
+#     def _is_in_sector(self, dist, angle, R, theta):
+#         """判断是否在指定扇形区域内"""
+#         return dist <= R and abs(angle) <= theta/2
+
+#     def _enemy_threat_level(self, self_pose, enemy):
+#         """评估单个敌军的综合威胁"""
+#         # 计算相对参数
+#         ex, ey, eheading = enemy['pos'][0], enemy['pos'][1], enemy['heading']
+#         dist = math.hypot(ex - self_pose[0], ey - self_pose[1])
+#         rel_angle = self._relative_angle(self_pose, (ex, ey))
+        
+#         # 敌方对我方的探测能力
+#         enemy_detect_angle = self._relative_angle(
+#             (ex, ey, eheading), self_pose[:2]
+#         )
+#         in_enemy_detect = self._is_in_sector(
+#             dist, enemy_detect_angle, self.enemy_R1, self.enemy_theta1
+#         )
+        
+#         # 威胁基值（距离反比 × 角度系数）
+#         threat = (1 / (dist + 1e-5)) * (1 - abs(rel_angle)/180)
+        
+#         # 敌方能力调整
+#         if in_enemy_detect:
+#             threat *= 2.0 if dist <= self.enemy_R1/2 else 1.5
+#             if 'attack' in enemy['status']:  # 假设能获取敌方状态
+#                 threat *= 3.0
+#         return threat
+
+#     def _predict_enemy_turn(self, enemy_id):
+#         """基于历史数据预测敌军转向"""
+#         history = self.enemy_history.get(enemy_id, deque(maxlen=5))
+#         if len(history) < 2:
+#             return False
+#         # 计算平均角速度
+#         delta = sum(h[1] for h in history)/len(history)
+#         return abs(delta) > 15  # 若平均转向速度>15度/步，视为主动搜索
+
+#     def calculate(self, self_pose, enemies, action):
+#         """主奖励计算"""
+#         reward = 0.0
+#         safe_to_attack = True
+#         max_threat = 0.0
+#         grid = (int(self_pose[0]), int(self_pose[1]))
+        
+#         #=== 多敌军威胁分析 ===#
+#         for enemy in enemies:
+#             # 威胁评估
+#             threat = self._enemy_threat_level(self_pose, enemy)
+#             max_threat = max(max_threat, threat)
+            
+#             # 更新敌方历史数据
+#             enemy_id = enemy['id']
+#             rel_angle = self._relative_angle(self_pose, enemy['pos'][:2])
+#             self.enemy_history.setdefault(enemy_id, deque(maxlen=5)).append(
+#                 (enemy['pos'][2], rel_angle)
+#             )
+            
+#             # 判断是否所有敌军均无威胁
+#             if threat > 0.5:  # 经验阈值
+#                 safe_to_attack = False
+                
+#             # 预测转向惩罚
+#             if self._predict_enemy_turn(enemy_id):
+#                 reward += self.weights['predict_penalty']
+        
+#         #=== 动作专项逻辑 ===#
+#         if action == "chase":
+#             # 安全攻击奖励倍增
+#             if safe_to_attack and len(enemies) > 0:
+#                 reward += self.weights['safe_attack_bonus'] * len(enemies)
+#             # 距离奖励
+#             if self.prev_pose and len(enemies) > 0:
+#                 closest = min(
+#                     math.hypot(e['pos'][0]-self_pose[0], e['pos'][1]-self_pose[1])
+#                     for e in enemies
+#                 )
+#                 prev_closest = min(
+#                     math.hypot(e['pos'][0]-self.prev_pose[0], e['pos'][1]-self.prev_pose[1])
+#                     for e in enemies
+#                 )
+#                 reward += self.weights['base_chase'] * (prev_closest - closest)
+                
+#         elif action == "escape":
+#             # 安全时逃跑惩罚
+#             if safe_to_attack:
+#                 reward += self.weights['escape_penalty_if_safe']
+#             else:
+#                 # 根据最高威胁动态调整
+#                 reward += 0.1 * max_threat
+        
+#         elif action == "search":
+#             # 探索奖励
+#             if grid not in self.explored_grids:
+#                 self.explored_grids.add(grid)
+#                 reward += self.weights['explore_per_grid']
+        
+#         #=== 姿态变化惩罚 ===#
+#         if self.prev_pose:
+#             delta_steer = abs(self_pose[2] - self.prev_pose[2])
+#             reward += self.weights['steer_penalty'] * delta_steer
+        
+#         self.prev_pose = self_pose
+#         return reward
+
+def getReward3(iifds, uavPos, uavVel, task_index, missle_index, all_opp, all_nei, all_nei_c2e):
+    """
+    获取任务分配奖励值函数
+    """
+    rewardsum = 0
+    base_reward = 1
+    base_penalty = -1
+
+    if missle_index[0] == 0: # 弹药为空
+        if task_index[0] == -2: # 选择逃逸
+            rewardsum = base_reward
+        else:
+            rewardsum = base_penalty
+    else:
+        if len(all_opp[0]) != 0:  # 发现敌方
+            ave_opp_pos = sum(uavPos[index] for index in all_opp[0]) / len(all_opp[0])
+            ave_opp_vel = sum(uavVel[index] for index in all_opp[0]) / len(all_opp[0])
+            ave_nei_pos = (sum(uavPos[index] for index in all_nei[0]) + uavPos[0]) / (len(all_nei[0]) + 1)
+            ave_nei_vel = (sum(uavVel[index] for index in all_nei[0]) + uavVel[0]) / (len(all_nei[0]) + 1)
+            if iifds.cos_cal(ave_nei_vel, ave_opp_pos - ave_nei_pos) >= iifds.cos_cal(ave_opp_vel, -ave_opp_pos + ave_nei_pos):
+                if task_index[0] == 0:  # 选择追击
+                    rewardsum = 2*base_reward
+                else:
+                    rewardsum = base_penalty
+            else:
+                if task_index[0] == -2:  # 选择逃逸
+                    rewardsum = base_reward
+                else:
+                    rewardsum = base_penalty
+        else:
+            if len(all_nei_c2e[0]) != 0:  # 存在逃跑或追击的友军
+                if task_index[0] == -1:  # 选择支援
+                    rewardsum = 1.5*base_reward
+                else:
+                    rewardsum = base_penalty
+            else:
+                if task_index[0] == -3: # 选择搜索
+                    rewardsum = base_reward
+                else:
+                    rewardsum = base_penalty
+
+    return rewardsum
 
 def getReward2(qNext, obsCenterNext, obs_num, goal, iifds, start):
     """

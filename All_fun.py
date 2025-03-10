@@ -26,8 +26,8 @@ class IIFDS:
         self.uavR = 0.3  # 无人车半径
         self.num_com = 1  # 路径规划时考虑的邻居数量
         self.obsR = 0.3  # 障碍物半径
-        self.R_1 = 5  # 针对敌军的感知半径
-        self.R_2 = 5  # 针对友军的感知半径
+        self.R_1 = 10  # 针对敌军的感知半径
+        self.R_2 = 20  # 针对友军的感知半径
         self.missle_num = 100  # 最大子弹填充数量
         self.hit_angle = np.pi / 2  # 子弹攻击角度
         self.hit_rate = 0.5  # 子弹命中概率
@@ -96,6 +96,13 @@ class IIFDS:
 
         self.vObs = None
         self.vObsNext = None
+        self.action_space = [
+            "搜索",    # 索引-3
+            "逃逸",    # 索引-2
+            "支援",    # 索引-1
+            "追击"     # 索引0
+            ]
+        self.obs_dim = 40 # [q_x, q_y, v_x, v_y]*10
 
     def detect(self, uavPos, flag_uav, ta_index, HP_index, obsCenter):
         all_opp = []
@@ -128,23 +135,23 @@ class IIFDS:
                     elif j != i and j < int(self.numberofuav / 2):  # 友方判断
                         if flag_uav[j] == 0:  # 存活判断
                             if self.is_within_perception_range(self.R_2, self.R_2, uavPos[i][0:2], uavPos[j][0:2]):  # 记录感知半径范围内的友军
-                                flag_undetected = 0
-                                for k in range(len(obsCenter)):
-                                    if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
-                                                                      (uavPos[i][0], uavPos[i][1]),
-                                                                      (uavPos[j][0], uavPos[j][1]))) == 2:
-                                        flag_undetected = 1  # 隔墙无法感知友军
-                                        break
-                                if flag_undetected == 0:
-                                    nei.append(j)  # 存放能感知到的友军
-                                    if ta_index[-1][j] == 0 or ta_index[-1][j] == -2:  # 记录追击和逃跑的友军
-                                        if ta_index[-1][j] == -2:
-                                            distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_2 + \
-                                                              HP_index[j]/ self.HP_num + self.HP_num   # 友军信息包括位置、血量
-                                        else:
-                                            distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_2 + \
-                                                              HP_index[j]/ self.HP_num
-                                        nei_c2e.append(j)
+                                # flag_undetected = 0
+                                # for k in range(len(obsCenter)):
+                                #     if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
+                                #                                       (uavPos[i][0], uavPos[i][1]),
+                                #                                       (uavPos[j][0], uavPos[j][1]))) == 2:
+                                #         flag_undetected = 1  # 隔墙无法感知友军
+                                #         break
+                                # if flag_undetected == 0:
+                                nei.append(j)  # 存放能感知到的友军
+                                if ta_index[-1][j] == 0 or ta_index[-1][j] == -2:  # 记录追击和逃跑的友军
+                                    if ta_index[-1][j] == -2:
+                                        distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_2 + \
+                                                          HP_index[j]/ self.HP_num + self.HP_num   # 友军信息包括位置、血量
+                                    else:
+                                        distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j]) / self.R_2 + \
+                                                          HP_index[j]/ self.HP_num
+                                    nei_c2e.append(j)
                 uav_catch = heapq.nsmallest(1, distance1[0])
                 index1 = list(map(distance1[0].tolist().index, uav_catch))
                 uav_contact = heapq.nsmallest(1, distance2[0])
@@ -172,21 +179,21 @@ class IIFDS:
                     elif j != i and j >= int(self.numberofuav / 2):
                         if flag_uav[j] == 0:
                             if self.is_within_perception_range(self.R_2, self.R_2, uavPos[i][0:2], uavPos[j][0:2]):  # 记录感知半径范围内的友军
-                                flag_undetected = 0
-                                for k in range(len(obsCenter)):
-                                    if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
-                                                                      (uavPos[i][0], uavPos[i][1]),
-                                                                      (uavPos[j][0], uavPos[j][1]))) == 2:
-                                        flag_undetected = 1  # 隔墙无法感知友军
-                                        break
-                                if flag_undetected == 0:
-                                    nei.append(j)
-                                    if ta_index[-1][j] == 0 or ta_index[-1][j] == -2:  # 只记录追击和逃跑的友军
-                                        if ta_index[-1][j] == -2:
-                                            distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j])
-                                        else:
-                                            distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j])
-                                        nei_c2e.append(j)
+                                # flag_undetected = 0
+                                # for k in range(len(obsCenter)):
+                                #     if len(self.line_intersect_circle((obsCenter[k][0], obsCenter[k][1], self.obsR),
+                                #                                       (uavPos[i][0], uavPos[i][1]),
+                                #                                       (uavPos[j][0], uavPos[j][1]))) == 2:
+                                #         flag_undetected = 1  # 隔墙无法感知友军
+                                #         break
+                                # if flag_undetected == 0:
+                                nei.append(j)
+                                if ta_index[-1][j] == 0 or ta_index[-1][j] == -2:  # 只记录追击和逃跑的友军
+                                    if ta_index[-1][j] == -2:
+                                        distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j])
+                                    else:
+                                        distance2[0][j] = self.distanceCost(uavPos[i], uavPos[j])
+                                    nei_c2e.append(j)
                 uav_catch = heapq.nsmallest(1, distance1[0])
                 index1 = list(map(distance1[0].tolist().index, uav_catch))
                 uav_contact = heapq.nsmallest(1, distance2[0])
@@ -197,109 +204,6 @@ class IIFDS:
                 all_close_opp.append(index1[0])
                 all_close_nei.append(index2[0])
         return all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei
-
-    def Meanfield(self, uavPos, uavVel, all_opp, all_nei, all_nei_c2e):
-        uavPos_copy = np.copy(uavPos)
-        uavVel_copy = np.copy(uavVel)
-        ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e = [], [], [], [], [], []
-        for i in range(int(self.numberofuav)):
-            num_opp.append(len(all_opp[i]))
-            num_nei_c2e.append(len(all_nei_c2e[i]))
-            ave_nei_pos.append((sum(uavPos_copy[index] for index in all_nei[i]) + uavPos_copy[i]) / (len(all_nei[i]) + 1))
-            ave_nei_vel.append((sum(uavVel_copy[index] for index in all_nei[i]) + uavVel_copy[i]) / (len(all_nei[i]) + 1))
-            if(len(all_opp[i]) == 0):
-                ave_opp_pos.append(float('-inf'))
-                ave_opp_vel.append(float('-inf'))
-            else:
-                ave_opp_pos.append(sum(uavPos_copy[index] for index in all_opp[i]) / len(all_opp[i]))
-                ave_opp_vel.append(sum(uavVel_copy[index] for index in all_opp[i]) / len(all_opp[i]))
-        return ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e
-    
-    def stateSelectionBlue(self, ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e, missle_index):
-        task_index_blue = []
-
-        for i in range(int(self.numberofuav / 2)):
-            if missle_index[i] == 0:  # 只要弹药为空，就逃
-                task_index_blue.append(-2)  # 逃逸
-            else:
-                if num_opp[i] != 0: # 发现敌方
-                    if self.cos_cal(ave_nei_vel[i], ave_opp_pos[i] - ave_nei_pos[i]) >= self.cos_cal(ave_opp_vel[i],
-                                                                                                -ave_opp_pos[i] + ave_nei_pos[i]):
-                        task_index_blue.append(0)  # 追击
-                    else:
-                        task_index_blue.append(-2)  # 逃逸
-                else:
-                    if num_nei_c2e[i] != 0:  # 存在逃跑或追击的友军
-                        task_index_blue.append(-1)  # 支援
-                    else:
-                        task_index_blue.append(-3)  # 搜索
-                        
-        return task_index_blue
-    
-    def stateSelectionRed(self, uavPos, uavVel, missle_index, all_opp, all_nei_c2e, all_close_opp):
-        task_index_red = []
-        uavPos_copy = np.copy(uavPos)
-        uavVel_copy = np.copy(uavVel)
-        for i in range(int(self.numberofuav / 2)):
-            i = i + int(self.numberofuav / 2)
-            if missle_index[i] == 0:  # 只要弹药为空，就逃
-                task_index_red.append(-2)  # 逃逸
-            else:
-                if len(all_opp[i]) != 0: # 发现敌方
-                    if self.cos_cal(uavVel[i], uavPos_copy[all_close_opp[i]] - uavPos_copy[i]) >= self.cos_cal(
-                                uavVel[all_close_opp[i]], -uavPos_copy[all_close_opp[i]] + uavPos_copy[i]):
-                        task_index_red.append(0)  # 追击
-                    else:
-                        task_index_red.append(-2)  # 逃逸
-                else:
-                    if len(all_nei_c2e[i]) != 0:  # 存在逃跑或追击的友军
-                        task_index_red.append(-1)  # 支援
-                    else:
-                        task_index_red.append(-3)  # 搜索
-
-        return task_index_red
-    
-    def allocation(self, uavPos,  goal,  pos_b, pos_r, ta_index,
-               obsCenter,  all_close_opp, all_close_nei, task_index, epi):
-        ass_index = []
-
-        uavPos_copy = np.copy(uavPos)
-        goal_copy = np.copy(goal)
-        for i in range(self.numberofuav):
-            if task_index[i] == -3: # 搜索
-                if epi > self.end_predict and (
-                                ta_index[-1][i] != -3 or epi % 5 == 0 or self.distanceCost(goal_copy[i],
-                                                                                           uavPos_copy[
-                                                                                               i]) < self.threshold2):
-                    if i < self.numberofuav / 2:
-                        finder = FindEnemyArea(pos_r, obsCenter, self.timeStep, self.obsR+self.uavR)
-                    else:
-                        finder = FindEnemyArea(pos_b, obsCenter, self.timeStep, self.obsR+self.uavR)
-                    temp = finder.predict_trajectory(10)
-                    try:
-                        goal_copy[i][0:2] = finder.find_nearest_center(temp, uavPos_copy[i][0:2])
-                    except Exception as e:
-                        # print('未找到覆盖点')
-                        pass
-                ass_index.append(-2)
-            elif task_index[i] == -2: # 逃逸
-                if (ta_index[-1][i] != -2) or (
-                    self.distanceCost(goal_copy[i], uavPos_copy[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点，重新计算逃逸目标点
-                    if i < self.numberofuav / 2:
-                        finder = FindSafeSpot(pos_r, uavPos_copy[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
-                    else:
-                        finder = FindSafeSpot(pos_b, uavPos_copy[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
-                    temp = finder.predict_trajectory(10)
-                goal_copy[i][0:2] = finder.find_safe_spot(list(temp.values()))
-                ass_index.append(-1)
-            elif task_index[i] == -1: # 支援
-                goal_copy[i] = uavPos_copy[all_close_nei[i]]
-                ass_index.append(all_close_nei[i])
-            else: # 追击
-                goal_copy[i] = uavPos_copy[all_close_opp[i]]
-                ass_index.append(all_close_opp[i])
-
-        return goal_copy, ass_index
 
     def assign(self, uavPos, uavVel, goal, missle_index, epi, pos_b, pos_r, ta_index,
                obsCenter, all_opp, all_nei, all_nei_c2e, all_close_opp, all_close_nei):
@@ -342,14 +246,14 @@ class IIFDS:
                                 # ===========================
                                 finder = FindSafeSpot(pos_r, uavPos_copy[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
                                 temp = finder.predict_trajectory(10)
-                                goal[i][0:2] = finder.find_safe_spot(list(temp.values()))
+                                goal_copy[i][0:2] = finder.find_safe_spot(list(temp.values()))
                                 # ===========================
                             ass_index.append(-1)
                             task_index.append(-2)  # 逃逸
                     else:
                         if self.cos_cal(uavVel_copy[i], uavPos_copy[all_close_opp[i]] - uavPos_copy[i]) >= self.cos_cal(
                                 uavVel_copy[all_close_opp[i]], -uavPos_copy[all_close_opp[i]] + uavPos_copy[i]):
-                            goal_copy[i] = uavPos[all_close_opp[i]]
+                            goal_copy[i] = uavPos_copy[all_close_opp[i]]
                             ass_index.append(all_close_opp[i])
                             task_index.append(0)  # 追击
                         else:
@@ -422,7 +326,13 @@ class IIFDS:
         self.index_com = np.zeros([self.numberofuav, self.num_com])
         for i in range(self.numberofuav):
             self.uav_com[i] = heapq.nsmallest(self.num_com, distance[i])
-            self.index_com[i] = list(map(distance[i].tolist().index, self.uav_com[i]))
+            # # 检查 distance 数组中是否有 nan
+            # print("distance 包含 nan:", np.isnan(distance[i]).any())
+            # # 检查 self.uav_com[i] 中是否有 nan
+            # print("self.uav_com[i] 包含 nan:", np.isnan(self.uav_com[i]).any())
+            distance_clean = np.where(np.isnan(distance[i]), None, distance[i])
+            # self.index_com[i] = list(map(distance[i].tolist().index, self.uav_com[i]))
+            self.index_com[i] = [IIFDS.safe_find_index(distance[i], val) for val in self.uav_com[i]]
             for j in range(int(1)):
                 if int(self.index_com[i][j]) < self.numberofuav:
                     z1 = (uavPos[int(self.index_com[i][j])] - uavPos[i]) * (
@@ -904,32 +814,7 @@ class IIFDS:
         else:
             return False
 
-    def detect_enemy(self, image_path):
-        # 读取图片
-        image = cv2.imread(image_path)
-    
-        # 转换为HSV颜色空间
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    
-        # 设置红色的HSV范围
-        lower_red1 = np.array([0, 120, 70])
-        upper_red1 = np.array([10, 255, 255])
-        lower_red2 = np.array([170, 120, 70])
-        upper_red2 = np.array([180, 255, 255])
-    
-        # 使用范围值生成掩码
-        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-        mask = mask1 + mask2
-    
-        # 对原图像和掩码进行位运算
-        result = cv2.bitwise_and(image, image, mask=mask)
-    
-        # 检测掩码中是否有非零像素点，非零即代表存在红色
-        if cv2.countNonZero(mask) > 0:
-            return True
-        else:
-            return False
+
 
     def find_and_label_regions(self, image_path, task, all_opp, all_nei, assign, pos, flag, episode):
         if len(all_opp) != 0 or len(all_nei) != 0:
@@ -1126,6 +1011,169 @@ class IIFDS:
             # 将字符串写入文件
             file.write(output_str)
         print(episode,output_str)
+
+    def Meanfield(self, uavPos, uavVel, all_opp, all_nei, all_nei_c2e):
+        ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e = [], [], [], [], [], []
+        for i in range(int(self.numberofuav)):
+            num_opp.append(len(all_opp[i]))
+            num_nei_c2e.append(len(all_nei_c2e[i]))
+            ave_nei_pos.append((sum(uavPos[index] for index in all_nei[i]) + uavPos[i]) / (len(all_nei[i]) + 1))
+            ave_nei_vel.append((sum(uavVel[index] for index in all_nei[i]) + uavVel[i]) / (len(all_nei[i]) + 1))
+            if(len(all_opp[i]) == 0):
+                ave_opp_pos.append(float('-inf'))
+                ave_opp_vel.append(float('-inf'))
+            else:
+                ave_opp_pos.append(sum(uavPos[index] for index in all_opp[i]) / len(all_opp[i]))
+                ave_opp_vel.append(sum(uavVel[index] for index in all_opp[i]) / len(all_opp[i]))
+        return ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e
+    
+    def stateSelectionBlue(self, ave_opp_pos, ave_opp_vel, ave_nei_pos, ave_nei_vel, num_opp, num_nei_c2e, missle_index):
+        task_index_blue = []
+        for i in range(int(self.numberofuav / 2)):
+            if missle_index[i] == 0:  # 只要弹药为空，就逃
+                task_index_blue.append(-2)  # 逃逸
+            else:
+                if num_opp[i] != 0: # 发现敌方
+                    if self.cos_cal(ave_nei_vel[i], ave_opp_pos[i] - ave_nei_pos[i]) >= self.cos_cal(ave_opp_vel[i],
+                                                                                                -ave_opp_pos[i] + ave_nei_pos[i]):
+                        task_index_blue.append(0)  # 追击
+                    else:
+                        task_index_blue.append(-2)  # 逃逸
+                else:
+                    if num_nei_c2e[i] != 0:  # 存在逃跑或追击的友军
+                        task_index_blue.append(-1)  # 支援
+                    else:
+                        task_index_blue.append(-3)  # 搜索
+                        
+        return task_index_blue
+    
+    def stateSelectionRed(self, uavPos, uavVel, missle_index, all_opp, all_nei_c2e, all_close_opp):
+        task_index_red = []
+        for i in range(int(self.numberofuav / 2)):
+            i = i + int(self.numberofuav / 2)
+            if missle_index[i] == 0:  # 只要弹药为空，就逃
+                task_index_red.append(-2)  # 逃逸
+            else:
+                if len(all_opp[i]) != 0: # 发现敌方
+                    if self.cos_cal(uavVel[i], uavPos[all_close_opp[i]] - uavPos[i]) >= self.cos_cal(
+                                uavVel[all_close_opp[i]], -uavPos[all_close_opp[i]] + uavPos[i]):
+                        task_index_red.append(0)  # 追击
+                    else:
+                        task_index_red.append(-2)  # 逃逸
+                else:
+                    if len(all_nei_c2e[i]) != 0:  # 存在逃跑或追击的友军
+                        task_index_red.append(-1)  # 支援
+                    else:
+                        task_index_red.append(-3)  # 搜索
+
+        return task_index_red
+    
+    def allocation(self, uavPos,  goal,  pos_b, pos_r, ta_index,
+               obsCenter,  all_close_opp, all_close_nei, task_index, epi):
+        ass_index = []
+
+        for i in range(self.numberofuav):
+            if task_index[i] == -3: # 搜索
+                if epi > self.end_predict and (
+                                ta_index[-1][i] != -3 or epi % 5 == 0 or self.distanceCost(goal[i],
+                                                                                           uavPos[
+                                                                                               i]) < self.threshold2):
+                    if i < self.numberofuav / 2:
+                        finder = FindEnemyArea(pos_r, obsCenter, self.timeStep, self.obsR+self.uavR)
+                    else:
+                        finder = FindEnemyArea(pos_b, obsCenter, self.timeStep, self.obsR+self.uavR)
+                    temp = finder.predict_trajectory(10)
+                    try:
+                        goal[i][0:2] = finder.find_nearest_center(temp, uavPos[i][0:2])
+                    except Exception as e:
+                        # print('未找到覆盖点')
+                        pass
+                ass_index.append(-2)
+            elif task_index[i] == -2: # 逃逸
+                if (ta_index[-1][i] != -2) or (
+                    self.distanceCost(goal[i], uavPos[i]) < self.threshold3):  # 若状态刚切换为逃逸或到达逃逸点，重新计算逃逸目标点
+                    if i < self.numberofuav / 2:
+                        finder = FindSafeSpot(pos_r, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
+                    else:
+                        finder = FindSafeSpot(pos_b, uavPos[i][0:2], obsCenter, self.timeStep, self.obsR+self.uavR)
+                    temp = finder.predict_trajectory(10)
+                    goal[i][0:2] = finder.find_safe_spot(list(temp.values()))
+                ass_index.append(-1)
+            elif task_index[i] == -1: # 支援
+                goal[i] = uavPos[all_close_nei[i]]
+                ass_index.append(all_close_nei[i])
+            else: # 追击
+                goal[i] = uavPos[all_close_opp[i]]
+                ass_index.append(all_close_opp[i])
+
+        return goal, ass_index
+    
+    def getReward3(uavPos, uavVel, task_index, missle_index, all_opp, all_nei, all_nei_c2e):
+        """
+        获取任务分配奖励值函数
+        """
+        rewardsum = 0
+        base_reward = 1
+        base_penalty = -1
+
+        if missle_index == 0: # 弹药为空
+            if task_index[0] == -2: # 选择逃逸
+                rewardsum = base_reward
+            else:
+                rewardsum = base_penalty
+        else:
+            if len(all_opp[0]) != 0:  # 发现敌方
+                ave_opp_pos = sum(uavPos[index] for index in all_opp[0]) / len(all_opp[0])
+                ave_opp_vel = sum(uavVel[index] for index in all_opp[0]) / len(all_opp[0])
+                ave_nei_pos = (sum(uavPos[index] for index in all_nei[0]) + uavPos[0]) / (len(all_nei[0]) + 1)
+                ave_nei_vel = (sum(uavVel[index] for index in all_nei[0]) + uavVel[0]) / (len(all_nei[0]) + 1)
+                if iifds.cos_cal(ave_nei_vel, ave_opp_pos - ave_nei_pos) >= iifds.cos_cal(ave_opp_vel, -ave_opp_pos + ave_nei_pos):
+                    if task_index[0] == 0:  # 选择追击
+                        rewardsum = 2*base_reward
+                    else:
+                        rewardsum = base_penalty
+                else:
+                    if task_index[0] == -2:  # 选择逃逸
+                        rewardsum = base_reward
+                    else:
+                        rewardsum = base_penalty
+            else:
+                if len(all_nei_c2e[0]) != 0:  # 存在逃跑或追击的友军
+                    if task_index[0] == -1:  # 选择支援
+                        rewardsum = 1.5*base_reward
+                    else:
+                        rewardsum = base_penalty
+                else:
+                    if task_index[0] == -3: # 选择搜索
+                        rewardsum = base_reward
+                    else:
+                        rewardsum = base_penalty
+
+        return rewardsum
+    
+    def safe_find_index(arr, value):
+        """
+        处理 nan 和值不存在的情况
+        """
+        try:
+            if np.isnan(value):
+                # 查找 nan 的索引
+                indices = np.where(np.isnan(arr))[0]
+            else:
+            # 查找普通值的索引
+                indices = np.where(arr == value)[0]
+        
+            if len(indices) == 0:
+                return -1  # 或抛出警告
+            return indices[0]
+        except TypeError:
+            # 处理非浮点类型的值（如字符串）
+            try:
+                return arr.tolist().index(value)
+            except ValueError:
+                return -1
+    
+      
 
 if __name__ == "__main__":
     iifds = IIFDS()
