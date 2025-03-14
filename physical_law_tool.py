@@ -1359,6 +1359,7 @@ def calculate_deceleration_motion(mass, q, v, vNext, force_max, friction_force, 
 
     # 计算时间
     time_use = np.minimum(timestep, (v_size - vNext_size) / a)
+    time_use[time_use < 0] = 0
 
     # 计算最终速度和位置
     # 使用NumPy向量化操作替代循环

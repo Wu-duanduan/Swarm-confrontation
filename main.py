@@ -213,7 +213,7 @@ if __name__ == "__main__":
         # 无人车物理约束模块，输入为当前位置、速度、目标位置、角速度、时间步长，输出为下一时刻的位置、速度、角速度。
         q, random_q = random_q, q
         start_t = time.time()
-        qNext, vNext = physical_law.get_qvNext(q, v, vNext)
+        qNext, vNext = physical_law.get_qvNext(q, v, vNext, flag_uav)
         end_t = time.time()
         print("物理约束时间:", end_t - start_t, "s")
         # print(f"现存无人车数量：{iifds.numberofuav - np.sum(flag_uav)}")
@@ -231,7 +231,7 @@ if __name__ == "__main__":
                 vNext[j] = np.array([0, 0, 0])
             else:
                 if task_index[j] == 0:  # 如果是追击
-                    if iifds.distanceCost(goal[j], q[j]) < iifds.threshold and iifds.cos_cal(goal[j] - q[j],
+                    if iifds.distanceCost(q[ass_index[j]], q[j]) < iifds.threshold and iifds.cos_cal(q[ass_index[j]] - q[j],
                                                                                              v[j]) > np.cos(
                         iifds.hit_angle / 2):  # 目标小于开火范围
                         if random.random() < iifds.hit_rate:
